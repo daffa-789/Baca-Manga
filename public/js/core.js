@@ -1,0 +1,213 @@
+(() => {
+  function normalizeEmail(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase();
+  }
+
+  function getSession(sessionKey) {
+    const rawSession = sessionStorage.getItem(sessionKey);
+
+    if (!rawSession) {
+      return null;
+    }
+
+    try {
+      const parsedSession = JSON.parse(rawSession);
+
+      if (!parsedSession.id || !parsedSession.email) {
+        return null;
+      }
+
+      parsedSession.role = parsedSession.role || "user";
+      return parsedSession;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function setSession(sessionKey, userData) {
+    if (!userData || !userData.id || !userData.email) {
+      return;
+    }
+
+    sessionStorage.setItem(
+      sessionKey,
+      JSON.stringify({
+        ...userData,
+        role: userData.role || "user",
+      }),
+    );
+  }
+
+  function clearSession(sessionKey, additionalKeys = []) {
+    sessionStorage.removeItem(sessionKey);
+
+    additionalKeys.forEach((key) => {
+      sessionStorage.removeItem(key);
+    });
+  }
+
+  function parsePositiveInteger(value) {
+    const parsed = Number.parseInt(String(value || ""), 10);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    return parsed;
+  }
+
+  function normalizeOptionalInteger(value) {
+    if (value === undefined || value === null || value === "") {
+      return null;
+    }
+
+    const parsed = Number(value);
+
+    if (!Number.isInteger(parsed)) {
+      return Number.NaN;
+    }
+
+    return parsed;
+  }
+
+  function normalizePositiveInteger(value) {
+    if (value === undefined || value === null || value === "") {
+      return Number.NaN;
+    }
+
+    const parsed = Number(value);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return Number.NaN;
+    }
+
+    return parsed;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function renderImageWithFallback(src, alt, fallbackLabel, options = {}) {
+    const { fallbackClass = "cover-placeholder" } = options;
+    const safeAlt = escapeHtml(alt);
+    const safeFallbackLabel = escapeHtml(fallbackLabel);
+
+    if (!src) {
+      return `<div class="${fallbackClass}">${safeFallbackLabel}</div>`;
+    }
+
+    const safeSrc = escapeHtml(src);
+
+    return `
+      <img
+        src="${safeSrc}"
+        alt="${safeAlt}"
+        onerror="this.hidden=true;this.nextElementSibling.hidden=false;" />
+      <div class="${fallbackClass}" hidden>${safeFallbackLabel}</div>
+    `;
+  }
+
+  function formatDate(value, options = {}) {
+    const { emptyLabel = "Belum diatur", locale = "id-ID" } = options;
+
+    if (!value) {
+      return emptyLabel;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+
+    return new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  }
+
+  function formatDateTime(value, options = {}) {
+    const { emptyLabel = "Belum ada", locale = "id-ID" } = options;
+
+    if (!value) {
+      return emptyLabel;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+
+    return new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  }
+
+  function formatDuration(seconds) {
+    const safeSeconds = Math.max(0, Number(seconds || 0));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const remainingSeconds = safeSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}j ${minutes}m`;
+    }
+
+    if (minutes > 0) {
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+
+    return `${remainingSeconds}s`;
+  }
+
+  function formatCompactDuration(seconds) {
+    const safeSeconds = Math.max(0, Number(seconds || 0));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}j ${minutes}m`;
+    }
+
+    return `${minutes || 0}m`;
+  }
+
+  async function parseJsonResponse(response) {
+    try {
+      return await response.json();
+    } catch (error) {
+      return {};
+    }
+  }
+
+  window.OtakuCore = {
+    normalizeEmail,
+    getSession,
+    setSession,
+    clearSession,
+    parsePositiveInteger,
+    normalizeOptionalInteger,
+    normalizePositiveInteger,
+    escapeHtml,
+    renderImageWithFallback,
+    formatDate,
+    formatDateTime,
+    formatDuration,
+    formatCompactDuration,
+    parseJsonResponse,
+  };
+})();

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Otaku Shelf | Reader Manga</title>
+    <link
+      rel="stylesheet"
+      href="/assets/bootstrap-icons/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="/js/core.js" defer></script>
+    <script src="/js/session.js" defer></script>
+    <script src="/js/auth.js" defer></script>
+    <script src="/js/read.js" defer></script>
+  </head>
+  <body class="reader-page">
+    <main class="reader-shell">
+      <aside id="readerSidebar" class="reader-sidebar">
+        <div class="reader-sidebar-actions">
+          <a
+            id="readerDashboardLink"
+            class="primary-button reader-back-button"
+            href="/home.html"
+            aria-label="Kembali ke dashboard">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+          </a>
+        </div>
+
+        <div class="reader-sidebar-list">
+          <div class="section-head slim">
+            <div>
+              <p class="section-kicker">Chapter</p>
+              <h3>Daftar Chapter</h3>
+            </div>
+          </div>
+          <div id="readerChapterList" class="reader-chapter-list"></div>
+        </div>
+      </aside>
+
+      <section class="reader-main">
+        <article id="readerContent" class="reader-view">
+          <div class="reader-loading">Memuat halaman manga...</div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
