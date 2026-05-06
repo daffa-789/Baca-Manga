@@ -1,6 +1,6 @@
 (() => {
-  const SESSION_KEY = "profileSemester6.currentUser";
-  const REDIRECT_AFTER_LOGIN_KEY = "profileSemester6.redirectAfterLogin";
+  const SESSION_KEY = "manga.currentUser";
+  const REDIRECT_AFTER_LOGIN_KEY = "manga.redirectAfterLogin";
 
   function getCurrentUserSession() {
     return window.OtakuCore.getSession(SESSION_KEY);

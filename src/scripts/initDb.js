@@ -7,7 +7,7 @@ const DB_HOST = process.env.DB_HOST || "localhost";
 const DB_PORT = Number(process.env.DB_PORT || 3306);
 const DB_USER = process.env.DB_USER || "root";
 const DB_PASSWORD = process.env.DB_PASSWORD || "";
-const DB_NAME = process.env.DB_NAME || "profile_semester6";
+const DB_NAME = process.env.DB_NAME || "mangaku";
 const BOOTSTRAP_SUPER_ADMIN_EMAILS = [
   ...new Set(
     String(
@@ -402,7 +402,9 @@ async function initDb(options = {}) {
     `);
 
     // Ensure chapter_label is nullable (remove NOT NULL constraint) for existing tables
-    await connection.query(`ALTER TABLE chapters MODIFY chapter_label VARCHAR(100) NULL`);
+    await connection.query(
+      `ALTER TABLE chapters MODIFY chapter_label VARCHAR(100) NULL`,
+    );
 
     await ensureColumn(
       connection,
