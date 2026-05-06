@@ -66,7 +66,7 @@ function normalizeEmail(value) {
   return window.OtakuCore.normalizeEmail(value);
 }
 
-async function setFeedback(_element, message, variant = "info") {
+async function setFeedback(message, variant = "info") {
   if (!message) {
     return null;
   }
@@ -148,7 +148,6 @@ function attachRegisterForm() {
     return;
   }
 
-  const feedback = null;
   const submitButton = form.querySelector("button[type='submit']");
 
   form.addEventListener("submit", async (event) => {
@@ -159,7 +158,7 @@ function attachRegisterForm() {
     const validationError = validateCredentials(email, password);
 
     if (validationError) {
-      await setFeedback(feedback, validationError, "error");
+      await setFeedback(validationError, "error");
       return;
     }
 
@@ -172,16 +171,11 @@ function attachRegisterForm() {
       });
 
       if (!ok) {
-        await setFeedback(
-          feedback,
-          result.message || "Registrasi gagal.",
-          "error",
-        );
+        await setFeedback(result.message || "Registrasi gagal.", "error");
         return;
       }
 
       await setFeedback(
-        feedback,
         `Registrasi berhasil sebagai ${result.data.email}.`,
         "success",
       );
@@ -189,7 +183,7 @@ function attachRegisterForm() {
       form.reset();
       window.location.assign(consumeRedirectAfterLogin());
     } catch (error) {
-      await setFeedback(feedback, "Tidak dapat terhubung ke server.", "error");
+      await setFeedback("Tidak dapat terhubung ke server.", "error");
     } finally {
       setButtonState(submitButton, "", false);
     }
@@ -203,7 +197,6 @@ function attachLoginForm() {
     return;
   }
 
-  const feedback = null;
   const submitButton = form.querySelector("button[type='submit']");
 
   form.addEventListener("submit", async (event) => {
@@ -214,7 +207,7 @@ function attachLoginForm() {
     const validationError = validateCredentials(email, password);
 
     if (validationError) {
-      await setFeedback(feedback, validationError, "error");
+      await setFeedback(validationError, "error");
       return;
     }
 
@@ -227,12 +220,11 @@ function attachLoginForm() {
       });
 
       if (!ok) {
-        await setFeedback(feedback, result.message || "Login gagal.", "error");
+        await setFeedback(result.message || "Login gagal.", "error");
         return;
       }
 
       await setFeedback(
-        feedback,
         `Login berhasil sebagai ${result.data.email}.`,
         "success",
       );
@@ -240,7 +232,7 @@ function attachLoginForm() {
       setCurrentUserSession(result.data);
       window.location.assign(consumeRedirectAfterLogin());
     } catch (error) {
-      await setFeedback(feedback, "Tidak dapat terhubung ke server.", "error");
+      await setFeedback("Tidak dapat terhubung ke server.", "error");
     } finally {
       setButtonState(submitButton, "", false);
     }
