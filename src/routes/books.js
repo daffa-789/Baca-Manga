@@ -130,7 +130,18 @@ function resolveManagedUploadPath(url) {
     return null;
   }
 
-  return path.join(publicUploadDir, url.replace(/^\/uploads\//, ""));
+  const filePath = path.join(publicUploadDir, url.replace(/^\/uploads\//, ""));
+  const normalizedPath = path.normalize(filePath);
+
+  // Prevent path traversal attacks: ensure normalized path is still within uploads directory
+  if (
+    !normalizedPath.startsWith(path.normalize(publicUploadDir) + path.sep) &&
+    normalizedPath !== path.normalize(publicUploadDir)
+  ) {
+    return null;
+  }
+
+  return normalizedPath;
 }
 
 function deleteManagedFiles(urls = []) {
@@ -793,6 +804,10 @@ router.post("/", async (req, res) => {
     });
   } catch (error) {
     await connection.rollback();
+    // Cleanup uploaded thumbnail if book creation failed
+    if (payload.thumbnailUrl) {
+      deleteManagedFiles([payload.thumbnailUrl]);
+    }
     console.error("Create manga error:", error.message);
     return res.status(500).json({
       status: "error",
@@ -1588,6 +1603,13 @@ router.put("/:id", async (req, res) => {
     });
   } catch (error) {
     await connection.rollback();
+    // Cleanup new thumbnail if book update failed
+    if (
+      payload.thumbnailUrl &&
+      payload.thumbnailUrl !== existingBook.thumbnailUrl
+    ) {
+      deleteManagedFiles([payload.thumbnailUrl]);
+    }
     console.error("Update manga error:", error.message);
     return res.status(500).json({
       status: "error",
