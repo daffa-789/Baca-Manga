@@ -14,34 +14,92 @@
     <script src="/js/read.js" defer></script>
   </head>
   <body class="reader-page">
-    <main class="reader-shell">
-      <aside id="readerSidebar" class="reader-sidebar">
-        <div class="reader-sidebar-actions">
-          <a
-            id="readerDashboardLink"
-            class="primary-button reader-back-button"
-            href="/home.html"
-            aria-label="Kembali ke dashboard">
-            <i class="bi bi-arrow-left" aria-hidden="true"></i>
-          </a>
-        </div>
-
-        <div class="reader-sidebar-list">
-          <div class="section-head slim">
-            <div>
-              <p class="section-kicker">Chapter</p>
-              <h3>Daftar Chapter</h3>
+    <div class="reader-container">
+      <!-- Top Bar -->
+      <header class="reader-header">
+        <div class="reader-header-content">
+          <div class="reader-header-left">
+            <a
+              id="readerDashboardLink"
+              class="reader-header-back"
+              href="/home.html"
+              aria-label="Kembali ke dashboard"
+              title="Kembali ke dashboard">
+              <i class="bi bi-chevron-left" aria-hidden="true"></i>
+            </a>
+            <div class="reader-header-info">
+              <h1 id="readerBookTitle" class="reader-header-title">
+                Loading...
+              </h1>
             </div>
           </div>
-          <div id="readerChapterList" class="reader-chapter-list"></div>
-        </div>
-      </aside>
 
-      <section class="reader-main">
-        <article id="readerContent" class="reader-view">
-          <div class="reader-loading">Memuat halaman manga...</div>
-        </article>
-      </section>
-    </main>
+          <div class="reader-header-right">
+            <!-- chapter picker now opened from dashboard; hide redundant toggle -->
+          </div>
+        </div>
+      </header>
+
+      <div class="reader-layout">
+        <!-- Chapter Sidebar -->
+        <aside id="readerSidebar" class="reader-sidebar">
+          <div class="reader-sidebar-header" hidden>
+            <!-- sidebar header removed per UX: chapter picker handled via dashboard -->
+          </div>
+          <div id="readerChapterList" class="reader-chapter-list"></div>
+        </aside>
+
+        <!-- Main Reader Area -->
+        <main class="reader-main">
+          <article id="readerContent" class="reader-view">
+            <div class="reader-loading">
+              <div class="reader-loading-spinner"></div>
+              <p>Memuat halaman manga...</p>
+            </div>
+          </article>
+
+          <!-- Bottom Navigation -->
+          <footer class="reader-footer">
+            <div class="reader-footer-content">
+              <button
+                id="readerPrevButton"
+                class="reader-nav-button"
+                type="button"
+                aria-label="Halaman sebelumnya"
+                title="Sebelumnya atau tekan tombol ←">
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+              </button>
+
+              <button
+                id="readerNextButton"
+                class="reader-nav-button"
+                type="button"
+                aria-label="Halaman berikutnya"
+                title="Berikutnya atau tekan tombol →">
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </footer>
+        </main>
+      </div>
+    </div>
+
+    <!-- Mobile Top Bar for Chapter Navigation -->
+    <div id="readerMobileNav" class="reader-mobile-nav">
+      <button
+        id="readerPrevButtonMobile"
+        class="reader-mobile-nav-button"
+        type="button"
+        aria-label="Halaman sebelumnya">
+        <i class="bi bi-chevron-left" aria-hidden="true"></i>
+      </button>
+      <button
+        id="readerNextButtonMobile"
+        class="reader-mobile-nav-button"
+        type="button"
+        aria-label="Halaman berikutnya">
+        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+      </button>
+    </div>
   </body>
 </html>

@@ -7,6 +7,10 @@ const state = {
   reader: null,
   session: null,
   drawerOpen: false,
+  interactionsAttached: false,
+  pageElements: [],
+  currentPageIndex: 0,
+  navVisible: false,
 };
 
 function getCurrentUserSession() {
@@ -48,16 +52,7 @@ async function parseJsonResponse(response) {
 }
 
 function getAuthHeaders(baseHeaders = {}) {
-  const headers = {
-    ...baseHeaders,
-    "x-user-id": String(state.currentUser.id),
-  };
-
-  if (state.currentUser?.token) {
-    headers.Authorization = `Bearer ${state.currentUser.token}`;
-  }
-
-  return headers;
+  return window.OtakuCore.buildAuthHeaders(state.currentUser, baseHeaders);
 }
 
 function parseReaderRoute() {
@@ -110,6 +105,145 @@ function updatePageIndicators(text) {
   }
 }
 
+function updateReaderHeader(data) {
+  const bookTitle = document.getElementById("readerBookTitle");
+
+  if (bookTitle) {
+    bookTitle.textContent = escapeHtml(data.book.title);
+  }
+}
+
+function updateReaderHeaderPage(currentPage, totalPages) {
+  return;
+}
+
+function updateReaderRoutePage(pageNumber) {
+  const safePageNumber = Number.parseInt(String(pageNumber || ""), 10);
+
+  if (!Number.isInteger(safePageNumber) || safePageNumber <= 0) {
+    return;
+  }
+
+  const currentUrl = new URL(window.location.href);
+  const segments = currentUrl.pathname.split("/").filter(Boolean);
+
+  if (segments.length < 5) {
+    return;
+  }
+
+  if (segments[0] !== "read" || segments[1] !== "manga") {
+    return;
+  }
+
+  const nextPathname = `/${[segments[0], segments[1], segments[2], segments[3], String(safePageNumber)].join("/")}`;
+
+  if (nextPathname === currentUrl.pathname) {
+    return;
+  }
+
+  history.replaceState(
+    null,
+    "",
+    `${nextPathname}${currentUrl.search}${currentUrl.hash}`,
+  );
+}
+
+function setReaderNavigationVisible(visible) {
+  const shouldShow = Boolean(visible);
+
+  if (state.navVisible === shouldShow) {
+    return;
+  }
+
+  state.navVisible = shouldShow;
+  document.body.classList.toggle("reader-nav-visible", shouldShow);
+}
+
+function updateReaderNavVisibilityByScroll() {
+  const content = document.getElementById("readerContent");
+  const activePageElement = state.pageElements[state.currentPageIndex];
+
+  if (!content || !activePageElement) {
+    setReaderNavigationVisible(false);
+    return;
+  }
+
+  const contentRect = content.getBoundingClientRect();
+  const pageRect = activePageElement.getBoundingClientRect();
+  const reachedBottom = pageRect.bottom <= contentRect.bottom - 12;
+
+  setReaderNavigationVisible(reachedBottom);
+}
+
+function getPageNumberFromElement(pageElement, fallbackNumber) {
+  const parsed = Number(pageElement?.dataset?.pageNumber || Number.NaN);
+
+  if (Number.isInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return fallbackNumber;
+}
+
+function syncNavigationControls() {
+  const totalPages = state.pageElements.length;
+  const hasPrevInChapter = state.currentPageIndex > 0;
+  const hasNextInChapter =
+    totalPages > 0 && state.currentPageIndex < totalPages - 1;
+  const previousHref = state.reader?.pager?.previous?.href || "";
+  const nextHref = state.reader?.pager?.next?.href || "";
+
+  ["readerPrevButton", "readerPrevButtonMobile"].forEach((id) => {
+    const button = document.getElementById(id);
+
+    if (!button) {
+      return;
+    }
+
+    button.dataset.href = previousHref;
+    button.disabled = !hasPrevInChapter && !previousHref;
+  });
+
+  ["readerNextButton", "readerNextButtonMobile"].forEach((id) => {
+    const button = document.getElementById(id);
+
+    if (!button) {
+      return;
+    }
+
+    button.dataset.href = nextHref;
+    button.disabled = !hasNextInChapter && !nextHref;
+  });
+}
+
+function setActivePageIndex(index) {
+  const totalPages = state.pageElements.length;
+
+  if (!totalPages) {
+    updatePageIndicators("0 / 0");
+    syncNavigationControls();
+    return;
+  }
+
+  const safeIndex = Math.min(Math.max(index, 0), totalPages - 1);
+  const pageElement = state.pageElements[safeIndex];
+  const pageNumber = getPageNumberFromElement(pageElement, safeIndex + 1);
+
+  state.currentPageIndex = safeIndex;
+  updatePageIndicators(`${pageNumber} / ${totalPages}`);
+  updateReaderHeaderPage(pageNumber, totalPages);
+  updateReaderRoutePage(pageNumber);
+  syncNavigationControls();
+  updateReaderNavVisibilityByScroll();
+}
+
+function getPageIndexByNumber(targetPageNumber) {
+  return state.pageElements.findIndex((pageElement) => {
+    const pageNumber = getPageNumberFromElement(pageElement, Number.NaN);
+    return pageNumber === targetPageNumber;
+  });
+}
+
 function renderReaderNotFound(message) {
   const chapterList = document.getElementById("readerChapterList");
   const content = document.getElementById("readerContent");
@@ -131,18 +265,26 @@ function renderReaderNotFound(message) {
     `;
   }
 
-  updatePageIndicators("Panel - / -");
+  updatePageIndicators("0 / 0");
+  setNavButtonState("readerPrevButton", null);
+  setNavButtonState("readerNextButton", null);
   setNavButtonState("readerPrevButtonMobile", null);
   setNavButtonState("readerNextButtonMobile", null);
+  state.pageElements = [];
+  state.currentPageIndex = 0;
+  setReaderNavigationVisible(false);
 }
 
 function renderReader(data) {
   const chapterList = document.getElementById("readerChapterList");
   const content = document.getElementById("readerContent");
-  const pageLabel = `Panel ${data.page.pageNumber} / ${data.chapter.pageCount}`;
 
   state.reader = data;
 
+  // Update header
+  updateReaderHeader(data);
+
+  // Update chapter list
   if (chapterList) {
     chapterList.innerHTML = data.chapters
       .map(
@@ -151,53 +293,107 @@ function renderReader(data) {
             href="${chapter.href}"
             class="reader-chapter-link ${chapter.isCurrent ? "is-active" : ""}"
             data-reader-link>
-            <div>
-              <strong>Chapter ${chapter.chapterNumber}</strong>
-            </div>
-            <span>${chapter.pageCount} panel</span>
+            <strong>Chapter ${chapter.chapterNumber}</strong>
           </a>
         `,
       )
       .join("");
   }
 
+  // Render all pages as a long vertical strip
   if (content) {
+    const pages = Array.isArray(data.pages) ? data.pages : [data.page];
+
     content.innerHTML = `
       <div class="reader-stage">
-        <div class="reader-image-wrap">
-          ${renderImageWithFallback(
-            data.page.imageUrl,
-            `${data.book.title} chapter ${data.chapter.chapterNumber} panel ${data.page.pageNumber}`,
-            "Panel tidak tersedia",
-            "reader-page-fallback",
-          )}
-        </div>
-        <div class="reader-nav-controls">
-          <button
-            id="readerPrevButtonMobile"
-            class="reader-nav-button"
-            type="button"
-            aria-label="Halaman sebelumnya">
-            <i class="bi bi-chevron-left" aria-hidden="true"></i>
-          </button>
-          <button
-            id="readerNextButtonMobile"
-            class="reader-nav-button"
-            type="button"
-            aria-label="Halaman berikutnya">
-            <i class="bi bi-chevron-right" aria-hidden="true"></i>
-          </button>
-        </div>
+        ${pages
+          .map((p) => {
+            const imageUrl = String(p.imageUrl || "").trim();
+
+            if (!imageUrl) {
+              return `
+                  <div class="reader-page-item" data-page-number="${p.pageNumber}">
+                    <div class="reader-page-fallback">Panel tidak tersedia</div>
+                  </div>
+                `;
+            }
+
+            return `
+                <div class="reader-page-item" data-page-number="${p.pageNumber}">
+                  <img
+                    src="${escapeHtml(imageUrl)}"
+                    loading="lazy"
+                    decoding="async"
+                    alt="${escapeHtml(`${data.book.title} chapter ${data.chapter.chapterNumber} panel ${p.pageNumber}`)}"
+                    class="reader-image" />
+                </div>
+              `;
+          })
+          .join("")}
       </div>
     `;
+
+    // Scroll to the requested page in the route
+    const target = content.querySelector(
+      `[data-page-number="${data.page.pageNumber}"]`,
+    );
+
+    if (target) {
+      // use instant scroll so user lands on the right panel
+      target.scrollIntoView({ behavior: "auto", block: "start" });
+    }
+
+    state.pageElements = Array.from(
+      content.querySelectorAll(".reader-page-item"),
+    );
+
+    const requestedPageIndex = getPageIndexByNumber(data.page.pageNumber);
+    setActivePageIndex(requestedPageIndex >= 0 ? requestedPageIndex : 0);
+
+    // Observe page visibility to update active page state.
+    if (typeof IntersectionObserver !== "undefined") {
+      if (window._otakuPageObserver) {
+        window._otakuPageObserver.disconnect();
+      }
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const visibleEntries = entries
+            .filter((entry) => entry.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+          if (visibleEntries.length === 0) {
+            return;
+          }
+
+          const activeElement = visibleEntries[0].target;
+          const pageNumber = getPageNumberFromElement(activeElement, 1);
+          const nextIndex = getPageIndexByNumber(pageNumber);
+
+          if (nextIndex >= 0) {
+            setActivePageIndex(nextIndex);
+          }
+        },
+        { root: null, rootMargin: "0px", threshold: 0.6 },
+      );
+
+      window._otakuPageObserver = observer;
+      content.querySelectorAll(".reader-page-item").forEach((el) => {
+        observer.observe(el);
+      });
+    }
   }
 
-  updatePageIndicators(pageLabel);
+  // Keep chapter-edge fallback href for first/last page transitions.
+  setNavButtonState("readerPrevButton", data.pager.previous?.href || null);
+  setNavButtonState("readerNextButton", data.pager.next?.href || null);
   setNavButtonState(
     "readerPrevButtonMobile",
     data.pager.previous?.href || null,
   );
   setNavButtonState("readerNextButtonMobile", data.pager.next?.href || null);
+  syncNavigationControls();
+  updateReaderNavVisibilityByScroll();
 }
 
 async function fetchReaderData(route) {
@@ -289,16 +485,82 @@ async function navigateToReader(href) {
   window.location.assign(href);
 }
 
-function attachReaderInteractions() {
-  ["readerPrevButtonMobile", "readerNextButtonMobile"].forEach((id) => {
-    document.getElementById(id)?.addEventListener("click", async () => {
-      const href = document.getElementById(id)?.dataset.href;
+function scrollToPageByIndex(index) {
+  const target = state.pageElements[index];
 
-      if (href) {
-        await navigateToReader(href);
-      }
+  if (!target) {
+    return false;
+  }
+
+  setActivePageIndex(index);
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  return true;
+}
+
+async function handleDirectionalNavigation(direction) {
+  const totalPages = state.pageElements.length;
+
+  if (!totalPages || !state.reader) {
+    return;
+  }
+
+  const nextIndex = state.currentPageIndex + direction;
+
+  if (nextIndex >= 0 && nextIndex < totalPages) {
+    scrollToPageByIndex(nextIndex);
+    return;
+  }
+
+  if (direction > 0 && state.reader?.pager?.next?.href) {
+    await navigateToReader(state.reader.pager.next.href);
+    return;
+  }
+
+  if (direction < 0 && state.reader?.pager?.previous?.href) {
+    await navigateToReader(state.reader.pager.previous.href);
+  }
+}
+
+function attachReaderInteractions() {
+  if (state.interactionsAttached) {
+    return;
+  }
+
+  state.interactionsAttached = true;
+  const sidebar = document.getElementById("readerSidebar");
+  const menuToggle = document.getElementById("readerChapterMenuToggle");
+  const menuClose = document.getElementById("readerChapterMenuClose");
+  const readerContent = document.getElementById("readerContent");
+
+  // Sidebar toggle
+  if (menuToggle) {
+    menuToggle.addEventListener("click", () => {
+      sidebar?.classList.toggle("is-open");
     });
+  }
+
+  if (menuClose) {
+    menuClose.addEventListener("click", () => {
+      sidebar?.classList.remove("is-open");
+    });
+  }
+
+  document.getElementById("readerPrevButton")?.addEventListener("click", () => {
+    handleDirectionalNavigation(-1).catch(() => {});
   });
+  document
+    .getElementById("readerPrevButtonMobile")
+    ?.addEventListener("click", () => {
+      handleDirectionalNavigation(-1).catch(() => {});
+    });
+  document.getElementById("readerNextButton")?.addEventListener("click", () => {
+    handleDirectionalNavigation(1).catch(() => {});
+  });
+  document
+    .getElementById("readerNextButtonMobile")
+    ?.addEventListener("click", () => {
+      handleDirectionalNavigation(1).catch(() => {});
+    });
 
   document.body.addEventListener("click", async (event) => {
     const link = event.target.closest("[data-reader-link]");
@@ -320,6 +582,7 @@ function attachReaderInteractions() {
       return;
     }
 
+    sidebar?.classList.remove("is-open");
     event.preventDefault();
     await navigateToReader(link.getAttribute("href"));
   });
@@ -335,21 +598,32 @@ function attachReaderInteractions() {
       return;
     }
 
-    if (event.key === "ArrowLeft" && state.reader?.pager?.previous?.href) {
+    if (event.key === "ArrowLeft") {
       event.preventDefault();
-      await navigateToReader(state.reader.pager.previous.href);
+      await handleDirectionalNavigation(-1);
       return;
     }
 
-    if (event.key === "ArrowRight" && state.reader?.pager?.next?.href) {
+    if (event.key === "ArrowRight") {
       event.preventDefault();
-      await navigateToReader(state.reader.pager.next.href);
+      await handleDirectionalNavigation(1);
+    }
+
+    // Close sidebar on Escape
+    if (event.key === "Escape") {
+      sidebar?.classList.remove("is-open");
     }
   });
 
   window.addEventListener("beforeunload", () => {
     flushReadingSession({ background: true }).catch(() => {});
   });
+
+  if (readerContent) {
+    readerContent.addEventListener("scroll", () => {
+      updateReaderNavVisibilityByScroll();
+    });
+  }
 }
 
 async function initReaderPage() {
@@ -395,7 +669,6 @@ async function initReaderPage() {
     }
 
     renderReader(result.data);
-    attachReaderInteractions();
     startReadingSession();
   } catch (error) {
     renderReaderNotFound(error.message || "Gagal memuat halaman reader.");

@@ -67,29 +67,7 @@ function normalizeEmail(value) {
 }
 
 async function setFeedback(message, variant = "info") {
-  if (!message) {
-    return null;
-  }
-
-  const isError = variant === "error";
-  const isSuccess = variant === "success";
-  const alertOptions = {
-    icon: isError ? "error" : isSuccess ? "success" : "info",
-    title: isError ? "Gagal" : isSuccess ? "Berhasil" : "Pemberitahuan",
-    text: message,
-    confirmButtonText: "OK",
-  };
-
-  if (window.OtakuAlerts) {
-    return window.OtakuAlerts.showFeedback(alertOptions);
-  }
-
-  if (window.Swal) {
-    return Swal.fire(alertOptions);
-  }
-
-  window.alert(message);
-  return null;
+  return window.OtakuCore.showFeedback(message, variant);
 }
 
 function validateCredentials(email, password) {

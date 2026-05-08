@@ -6,7 +6,7 @@
   }
 
   function getSession(sessionKey) {
-    const rawSession = sessionStorage.getItem(sessionKey);
+    const rawSession = localStorage.getItem(sessionKey);
 
     if (!rawSession) {
       return null;
@@ -31,7 +31,7 @@
       return;
     }
 
-    sessionStorage.setItem(
+    localStorage.setItem(
       sessionKey,
       JSON.stringify({
         ...userData,
@@ -41,10 +41,12 @@
   }
 
   function clearSession(sessionKey, additionalKeys = []) {
-    sessionStorage.removeItem(sessionKey);
+    localStorage.removeItem(sessionKey);
 
     additionalKeys.forEach((key) => {
-      sessionStorage.removeItem(key);
+      try {
+        sessionStorage.removeItem(key);
+      } catch (e) {}
     });
   }
 
@@ -194,6 +196,59 @@
     }
   }
 
+  function buildAuthHeaders(currentUser, baseHeaders = {}) {
+    const userId = currentUser?.id;
+
+    if (!userId) {
+      return { ...baseHeaders };
+    }
+
+    const headers = {
+      ...baseHeaders,
+      "x-user-id": String(userId),
+    };
+
+    if (currentUser?.token) {
+      headers.Authorization = `Bearer ${currentUser.token}`;
+    }
+
+    return headers;
+  }
+
+  function showFeedback(message, variant = "info") {
+    if (!message) {
+      return null;
+    }
+
+    const options = {
+      icon:
+        variant === "error"
+          ? "error"
+          : variant === "success"
+            ? "success"
+            : "info",
+      title:
+        variant === "error"
+          ? "Gagal"
+          : variant === "success"
+            ? "Berhasil"
+            : "Pemberitahuan",
+      text: message,
+      confirmButtonText: "OK",
+    };
+
+    if (window.OtakuAlerts?.showFeedback) {
+      return window.OtakuAlerts.showFeedback(options);
+    }
+
+    if (window.Swal) {
+      return Swal.fire(options);
+    }
+
+    window.alert(message);
+    return null;
+  }
+
   window.OtakuCore = {
     normalizeEmail,
     getSession,
@@ -209,5 +264,7 @@
     formatDuration,
     formatCompactDuration,
     parseJsonResponse,
+    buildAuthHeaders,
+    showFeedback,
   };
 })();

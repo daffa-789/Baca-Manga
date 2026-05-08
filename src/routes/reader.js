@@ -17,6 +17,15 @@ function createReaderNotFoundResponse(message) {
   };
 }
 
+function addCacheBuster(url, version) {
+  if (!url) {
+    return url;
+  }
+
+  const separator = String(url).includes("?") ? "&" : "?";
+  return `${url}${separator}v=${encodeURIComponent(String(version || "0"))}`;
+}
+
 router.use(async (req, res, next) => {
   try {
     const { user, error } = await resolveRequestUser(pool, req);
@@ -204,10 +213,16 @@ router.get("/manga/:slug/:chapter/:page", async (req, res) => {
           pageCount: Number(activeChapter.pageCount || pageRows.length),
           previewImageUrl: activeChapter.previewImageUrl || null,
         },
+        // include all pages for chapter so client can render long-strip reader
+        pages: pageRows.map((p) => ({
+          id: p.id,
+          pageNumber: Number(p.pageNumber),
+          imageUrl: addCacheBuster(p.imageUrl, p.id),
+        })),
         page: {
           id: activePage.id,
           pageNumber: Number(activePage.pageNumber),
-          imageUrl: activePage.imageUrl,
+          imageUrl: addCacheBuster(activePage.imageUrl, activePage.id),
         },
         pager: {
           current: {

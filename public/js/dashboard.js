@@ -160,16 +160,7 @@ async function parseJsonResponse(response) {
 }
 
 function getAuthHeaders(baseHeaders = {}) {
-  const headers = {
-    ...baseHeaders,
-    "x-user-id": String(state.currentUser.id),
-  };
-
-  if (state.currentUser?.token) {
-    headers.Authorization = `Bearer ${state.currentUser.token}`;
-  }
-
-  return headers;
+  return window.OtakuCore.buildAuthHeaders(state.currentUser, baseHeaders);
 }
 
 async function requestJson(method, url, payload) {
@@ -217,37 +208,7 @@ async function requestForm(method, url, formData) {
 }
 
 function showFeedback(message, variant = "info") {
-  if (!message) {
-    return null;
-  }
-
-  const options = {
-    icon:
-      variant === "error"
-        ? "error"
-        : variant === "success"
-          ? "success"
-          : "info",
-    title:
-      variant === "error"
-        ? "Gagal"
-        : variant === "success"
-          ? "Berhasil"
-          : "Pemberitahuan",
-    text: message,
-    confirmButtonText: "OK",
-  };
-
-  if (window.OtakuAlerts) {
-    return window.OtakuAlerts.showFeedback(options);
-  }
-
-  if (window.Swal) {
-    return Swal.fire(options);
-  }
-
-  window.alert(message);
-  return null;
+  return window.OtakuCore.showFeedback(message, variant);
 }
 
 function setBodyRoleMode() {
@@ -269,9 +230,6 @@ function setBodyRoleMode() {
 function hydrateCurrentUserIdentity() {
   const emailElement = document.getElementById("currentUserEmail");
   const roleElement = document.getElementById("currentUserRole");
-  const kicker = document.getElementById("dashboardKicker");
-  const title = document.getElementById("dashboardTitle");
-
   if (emailElement) {
     emailElement.textContent = state.currentUser?.email || "-";
   }
@@ -283,19 +241,7 @@ function hydrateCurrentUserIdentity() {
     )}`;
   }
 
-  if (kicker) {
-    kicker.textContent = isSuperAdminUser()
-      ? "Super Admin Dashboard"
-      : isAdminUser()
-        ? "Admin Dashboard"
-        : "Manga Dashboard";
-  }
-
-  if (title) {
-    title.textContent = canManageCatalog()
-      ? "Kelola katalog manga, chapter, akses user, dan aktivitas"
-      : "Baca manga, tandai favorit, dan lanjut dari chapter terbaru";
-  }
+  // Dashboard header elements were removed from the HTML; no-op here.
 }
 
 function getActiveTabFromHash() {
@@ -608,6 +554,12 @@ function getFirstReadableUrl(book) {
     : null;
 }
 
+function navigateToReader(href) {
+  if (href) {
+    window.location.href = href;
+  }
+}
+
 function getSelectedBookSummary() {
   return state.books.find((book) => book.id === state.selectedBookId) || null;
 }
@@ -643,15 +595,8 @@ function renderCatalogCount() {
 function buildMangaCardActions(book, options = {}) {
   const readUrl = getFirstReadableUrl(book);
   const actions = [
-    `<button
-      type="button"
-      class="secondary-button small"
-      data-action="select-book"
-      data-book-id="${book.id}">
-      Pilih
-    </button>`,
     readUrl
-      ? `<a class="primary-button small" href="${readUrl}">Baca</a>`
+      ? `<a class="primary-button small" href="#" data-action="open-chapter-picker" data-book-id="${book.id}">Baca</a>`
       : `<button type="button" class="secondary-button small" disabled>Belum Ada Chapter</button>`,
   ];
 
@@ -744,7 +689,7 @@ function renderSelectedMangaPanel() {
   const readUrl = getFirstReadableUrl(book);
   const actions = [
     readUrl
-      ? `<a class="primary-button" href="${readUrl}">Baca Manga</a>`
+      ? `<a class="primary-button" href="#" data-action="open-chapter-picker" data-book-id="${book.id}">Baca Manga</a>`
       : `<button type="button" class="secondary-button" disabled>Belum Ada Chapter</button>`,
   ];
 
@@ -761,17 +706,7 @@ function renderSelectedMangaPanel() {
     );
   }
 
-  if (canManageCatalog()) {
-    actions.push(
-      `<button
-        type="button"
-        class="secondary-button"
-        data-action="open-edit-tab"
-        data-book-id="${book.id}">
-        Edit Manga
-      </button>`,
-    );
-  }
+  // Edit Manga button removed per user request
 
   container.innerHTML = `
     <div class="selected-cover">
@@ -795,7 +730,6 @@ function renderSelectedMangaPanel() {
       </p>
       <div class="chip-row">
         <span class="meta-chip">Rilis: ${escapeHtml(formatDate(book.publishedOn))}</span>
-        <span class="meta-chip">Creator: ${escapeHtml(book.createdByEmail || "-")}</span>
       </div>
       <div class="button-row">
         ${actions.join("")}
@@ -809,7 +743,7 @@ function buildChapterRow(chapter, options = {}) {
   const readUrl = book ? getReaderUrl(book, chapter.chapterNumber, 1) : null;
   const actions = [
     readUrl
-      ? `<a class="primary-button small" href="${readUrl}">Baca</a>`
+      ? `<a class="primary-button small chapter-read-link" href="${readUrl}" data-book-id="${book?.id || ""}" data-chapter-number="${chapter.chapterNumber}">Baca</a>`
       : '<button type="button" class="secondary-button small" disabled>Belum Bisa Dibaca</button>',
   ];
 
@@ -840,34 +774,13 @@ function buildChapterRow(chapter, options = {}) {
     <article class="chapter-card">
       <div class="chapter-copy">
         <strong>Chapter ${chapter.chapterNumber}</strong>
-        <span>${chapter.pageCount} panel • ${escapeHtml(
-          formatDate(chapter.releaseDate),
-        )}</span>
+        <span>${escapeHtml(formatDate(chapter.releaseDate))}</span>
       </div>
       <div class="button-row">
         ${actions.join("")}
       </div>
     </article>
   `;
-}
-
-function renderHomeChapterList() {
-  const container = document.getElementById("homeChapterList");
-  const chapters = state.selectedBookDetail?.chapters || [];
-
-  if (!container) {
-    return;
-  }
-
-  if (chapters.length === 0) {
-    container.innerHTML =
-      '<p class="empty-state">Chapter untuk manga ini belum tersedia.</p>';
-    return;
-  }
-
-  container.innerHTML = chapters
-    .map((chapter) => buildChapterRow(chapter))
-    .join("");
 }
 
 function renderEditChapterList() {
@@ -887,6 +800,83 @@ function renderEditChapterList() {
   container.innerHTML = chapters
     .map((chapter) => buildChapterRow(chapter, { manage: true }))
     .join("");
+}
+
+// Chapter picker modal: open UI to choose a chapter before navigating
+async function openChapterPicker(bookId) {
+  const existing = document.getElementById("otaku-chapter-picker");
+  if (existing) {
+    existing.remove();
+  }
+
+  // Prefer the fully-loaded selectedBookDetail (which includes chapters).
+  // Fallback to state.books (lightweight) only if necessary, and fetch
+  // full book detail when chapters are not available.
+  let book = null;
+  if (state.selectedBookDetail && state.selectedBookDetail.id === bookId) {
+    book = state.selectedBookDetail;
+  } else {
+    book = state.books.find((b) => b.id === bookId) || null;
+  }
+
+  // If we don't have chapters locally, fetch the full book detail.
+  if (!book || !Array.isArray(book.chapters) || book.chapters.length === 0) {
+    try {
+      const result = await requestJson("GET", `${BOOKS_ENDPOINT}/${bookId}`);
+      book = result.data;
+    } catch (err) {
+      showFeedback("Gagal memuat daftar chapter.", "error");
+      return;
+    }
+  }
+
+  const chapters = Array.isArray(book.chapters) ? book.chapters : [];
+
+  const overlay = document.createElement("div");
+  overlay.id = "otaku-chapter-picker";
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-panel">
+      <header class="modal-header">
+        <h3>Pilih Chapter - ${escapeHtml(book.title || "")}</h3>
+        <button class="modal-close" aria-label="Tutup">×</button>
+      </header>
+      <div class="modal-body">
+        ${chapters.length === 0 ? '<p class="empty-state">Belum ada chapter.</p>' : ""}
+        <div class="chapter-picker-list">
+          ${chapters
+            .map((ch) => {
+              const readerUrl = getReaderUrl(book, ch.chapterNumber, 1);
+              return `
+            <button class="picker-row" data-href="${escapeHtml(readerUrl || "")}" data-book-id="${book.id}" data-chapter-number="${ch.chapterNumber}">
+              <strong>Chapter ${ch.chapterNumber}</strong>
+              <span>${escapeHtml(formatDate(ch.releaseDate))}</span>
+            </button>
+          `;
+            })
+            .join("")}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelectorAll(".modal-close, .modal-overlay").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      if (e.target === el) overlay.remove();
+    });
+  });
+
+  overlay.querySelectorAll(".picker-row").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      const href = btn.dataset.href;
+      overlay.remove();
+      if (href) {
+        await navigateToReader(href);
+      }
+    });
+  });
 }
 
 function renderFavoritesGrid() {
@@ -1352,8 +1342,7 @@ async function refreshDashboard(options = {}) {
 
 function renderAll() {
   renderCatalogCount();
-  renderSelectedMangaPanel();
-  renderHomeChapterList();
+  // renderSelectedMangaPanel(); // Section removed
   renderMangaGrid("libraryGrid", state.books, { showManageActions: true });
   renderFavoritesGrid();
   renderEditMangaGallery();
@@ -1673,6 +1662,8 @@ function attachNavigation() {
 
 function attachGlobalActions() {
   document.body.addEventListener("click", async (event) => {
+    // (no interception for per-chapter read links - they should navigate directly)
+
     const actionElement = event.target.closest("[data-action]");
 
     if (!actionElement) {
@@ -1683,6 +1674,11 @@ function attachGlobalActions() {
     const bookId = parsePositiveInteger(actionElement.dataset.bookId);
     const chapterId = parsePositiveInteger(actionElement.dataset.chapterId);
     const userId = parsePositiveInteger(actionElement.dataset.userId);
+
+    if (action === "open-chapter-picker" && bookId) {
+      await openChapterPicker(bookId);
+      return;
+    }
 
     if (action === "select-book" && bookId) {
       await selectBook(bookId);

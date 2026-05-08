@@ -1531,11 +1531,12 @@ router.put("/:id", async (req, res) => {
   }
 
   const connection = await pool.getConnection();
+  let existingBook = null;
 
   try {
     await connection.beginTransaction();
 
-    const existingBook = await getBookById(connection, bookId);
+    existingBook = await getBookById(connection, bookId);
 
     if (!existingBook) {
       await connection.rollback();
@@ -1606,6 +1607,7 @@ router.put("/:id", async (req, res) => {
     // Cleanup new thumbnail if book update failed
     if (
       payload.thumbnailUrl &&
+      existingBook &&
       payload.thumbnailUrl !== existingBook.thumbnailUrl
     ) {
       deleteManagedFiles([payload.thumbnailUrl]);
