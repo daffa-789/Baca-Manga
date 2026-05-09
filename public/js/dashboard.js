@@ -1,4 +1,4 @@
-const BOOKS_ENDPOINT = "/api/books";
+﻿const BOOKS_ENDPOINT = "/api/books";
 const USERS_ENDPOINT = "/api/auth/users";
 const LOGS_ENDPOINT = "/api/auth/logs";
 const BOOKS_THUMBNAIL_ENDPOINT = `${BOOKS_ENDPOINT}/upload-thumbnail`;
@@ -593,10 +593,16 @@ function renderCatalogCount() {
 }
 
 function buildMangaCardActions(book, options = {}) {
+  // Validasi book.id untuk debugging
+  if (!book || !book.id) {
+    console.error("buildMangaCardActions: book atau book.id tidak valid", book);
+    return "";
+  }
+
   const readUrl = getFirstReadableUrl(book);
   const actions = [
     readUrl
-      ? `<a class="primary-button small" href="#" data-action="open-chapter-picker" data-book-id="${book.id}">Baca</a>`
+      ? `<button type="button" class="primary-button small" data-action="open-chapter-picker" data-book-id="${book.id}">Baca</button>`
       : `<button type="button" class="secondary-button small" disabled>Belum Ada Chapter</button>`,
   ];
 
@@ -659,7 +665,7 @@ function renderMangaGrid(containerId, books, options = {}) {
             <h3>${escapeHtml(book.title)}</h3>
             <p>${escapeHtml(book.author)}</p>
             <span>${escapeHtml(getGenreText(book))}</span>
-            <small>${getChapterCount(book)} chapter Ã¢â‚¬Â¢ ${getStatusLabel(
+            <small>${getChapterCount(book)} chapter ${getStatusLabel(
               book.status,
             )}</small>
           </div>
@@ -689,7 +695,7 @@ function renderSelectedMangaPanel() {
   const readUrl = getFirstReadableUrl(book);
   const actions = [
     readUrl
-      ? `<a class="primary-button" href="#" data-action="open-chapter-picker" data-book-id="${book.id}">Baca Manga</a>`
+      ? `<button type="button" class="primary-button" data-action="open-chapter-picker" data-book-id="${book.id}">Baca Manga</button>`
       : `<button type="button" class="secondary-button" disabled>Belum Ada Chapter</button>`,
   ];
 
@@ -804,6 +810,7 @@ function renderEditChapterList() {
 
 // Chapter picker modal: open UI to choose a chapter before navigating
 async function openChapterPicker(bookId) {
+  console.log("[DEBUG] openChapterPicker dipanggil dengan bookId:", bookId);
   const existing = document.getElementById("otaku-chapter-picker");
   if (existing) {
     existing.remove();
@@ -839,7 +846,7 @@ async function openChapterPicker(bookId) {
     <div class="modal-panel">
       <header class="modal-header">
         <h3>Pilih Chapter - ${escapeHtml(book.title || "")}</h3>
-        <button class="modal-close" aria-label="Tutup">Ãƒâ€”</button>
+        <button class="modal-close" aria-label="Tutup">×</button>
       </header>
       <div class="modal-body">
         ${chapters.length === 0 ? '<p class="empty-state">Belum ada chapter.</p>' : ""}
@@ -944,7 +951,7 @@ function renderDatabaseList() {
           <div class="database-copy">
             <strong>${escapeHtml(book.title)}</strong>
             <p>${escapeHtml(book.author)}</p>
-            <span>${getChapterCount(book)} chapter Ã¢â‚¬Â¢ ${escapeHtml(
+            <span>${getChapterCount(book)} chapter • ${escapeHtml(
               getGenreText(book),
             )}</span>
           </div>
@@ -991,7 +998,7 @@ function renderUserRoleList() {
         <article class="user-card ${isCurrentUser ? "is-active" : ""}">
           <div class="user-copy">
             <strong>${escapeHtml(user.email)}</strong>
-            <p>${getRoleLabel(user.role)}${isCurrentUser ? " Ã¢â‚¬Â¢ akun aktif" : ""}</p>
+            <p>${getRoleLabel(user.role)}${isCurrentUser ? " akun aktif" : ""}</p>
             <span>Diperbarui ${escapeHtml(formatDateTime(user.updatedAt))}</span>
           </div>
           <div class="user-actions">
@@ -1097,7 +1104,7 @@ function renderEditFormFromSelectedBook() {
     return;
   }
 
-  meta.textContent = `${book.title} Ã¢â‚¬Â¢ ${getChapterCount(book)} chapter`;
+  meta.textContent = `${book.title} ${getChapterCount(book)} chapter`;
   document.getElementById("editBookId").value = String(book.id);
   document.getElementById("editTitle").value = book.title || "";
   document.getElementById("editAuthor").value = book.author || "";
@@ -1171,7 +1178,7 @@ function prepareChapterForm(book = state.selectedBookDetail) {
     return;
   }
 
-  bookLabel.textContent = `${book.title} Ã¢â‚¬Â¢ ${getChapterCount(book)} chapter`;
+  bookLabel.textContent = `${book.title} ${getChapterCount(book)} chapter`;
   bookIdInput.value = String(book.id);
   chapterNumber.value = String(getNextChapterNumber(book));
   chapterPageCount.value = "1";
@@ -1676,6 +1683,12 @@ function attachGlobalActions() {
     const userId = parsePositiveInteger(actionElement.dataset.userId);
 
     if (action === "open-chapter-picker" && bookId) {
+      console.log(
+        "[DEBUG] Button Baca clicked! bookId:",
+        bookId,
+        "action:",
+        action,
+      );
       event.preventDefault();
       await openChapterPicker(bookId);
       return;

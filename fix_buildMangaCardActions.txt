@@ -1,0 +1,41 @@
+﻿function buildMangaCardActions(book, options = {}) {
+  // Validasi book.id
+  if (!book || !book.id) {
+    console.error("buildMangaCardActions: book atau book.id tidak valid", book);
+    return "";
+  }
+
+  const readUrl = getFirstReadableUrl(book);
+  const actions = [
+    readUrl
+      ? `<button type="button" class="primary-button small" data-action="open-chapter-picker" data-book-id="${book.id}">Baca</button>`
+      : `<button type="button" class="secondary-button small" disabled>Belum Ada Chapter</button>`,
+  ];
+
+  if (isRegularUser()) {
+    actions.push(
+      `<button
+        type="button"
+        class="secondary-button small"
+        data-action="toggle-favorite"
+        data-book-id="${book.id}"
+        data-next-favorite="${!book.isFavorite}">
+        ${book.isFavorite ? "Hapus Favorit" : "Tambah Favorit"}
+      </button>`,
+    );
+  }
+
+  if (options.showManageActions && canManageCatalog()) {
+    actions.push(
+      `<button
+        type="button"
+        class="secondary-button small"
+        data-action="open-edit-tab"
+        data-book-id="${book.id}">
+        Edit Manga
+      </button>`,
+    );
+  }
+
+  return actions.join("");
+}
