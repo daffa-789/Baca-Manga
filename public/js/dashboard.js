@@ -810,7 +810,6 @@ function renderEditChapterList() {
 
 // Chapter picker modal: open UI to choose a chapter before navigating
 async function openChapterPicker(bookId) {
-  console.log("[DEBUG] openChapterPicker dipanggil dengan bookId:", bookId);
   const existing = document.getElementById("otaku-chapter-picker");
   if (existing) {
     existing.remove();
@@ -826,89 +825,84 @@ async function openChapterPicker(bookId) {
     book = state.books.find((b) => b.id === bookId) || null;
   }
 
-  const overlay = document.createElement("div");
-  overlay.id = "otaku-chapter-picker";
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `
-    <div class="modal-panel">
-      <header class="modal-header">
-        <h3>Pilih Chapter</h3>
-        <button type="button" class="modal-close" aria-label="Tutup">×</button>
-      </header>
-      <div class="modal-body">
-        <p class="empty-state">Memuat daftar chapter...</p>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-
-  const closeModal = () => overlay.remove();
-
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) {
-      closeModal();
-    }
-  });
-
-  overlay.querySelector(".modal-close")?.addEventListener("click", closeModal);
+  if (typeof Swal === "undefined") {
+    showFeedback("Popup chapter belum siap dimuat.", "error");
+    return;
+  }
 
   // If we don't have chapters locally, fetch the full book detail.
   if (!book || !Array.isArray(book.chapters) || book.chapters.length === 0) {
     try {
+      Swal.fire({
+        title: "Memuat chapter",
+        html: '<p class="empty-state">Mohon tunggu sebentar...</p>',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
       const result = await requestJson("GET", `${BOOKS_ENDPOINT}/${bookId}`);
       book = result.data;
     } catch (err) {
-      const modalBody = overlay.querySelector(".modal-body");
-
-      if (modalBody) {
-        modalBody.innerHTML = `
-          <p class="empty-state">Gagal memuat daftar chapter.</p>
-          <div class="button-row" style="justify-content:center; margin-top: 1rem;">
-            <button type="button" class="secondary-button small modal-close">Tutup</button>
-          </div>
-        `;
-        overlay.querySelector(".modal-close")?.addEventListener("click", closeModal);
-      } else {
-        showFeedback("Gagal memuat daftar chapter.", "error");
-        closeModal();
-      }
+      Swal.close();
+      await Swal.fire({
+        icon: "error",
+        title: "Gagal",
+        text: "Gagal memuat daftar chapter.",
+      });
       return;
     }
   }
 
   const chapters = Array.isArray(book.chapters) ? book.chapters : [];
 
-  overlay.querySelector(".modal-header h3").textContent = `Pilih Chapter - ${book.title || ""}`;
-  const modalBody = overlay.querySelector(".modal-body");
-
-  if (modalBody) {
-    modalBody.innerHTML = `
-      ${chapters.length === 0 ? '<p class="empty-state">Belum ada chapter.</p>' : ""}
-      <div class="chapter-picker-list">
+  const chapterHtml = chapters.length === 0
+    ? '<p class="empty-state">Belum ada chapter.</p>'
+    : `<div class="chapter-picker-list">
         ${chapters
           .map((ch) => {
             const readerUrl = getReaderUrl(book, ch.chapterNumber, 1);
             return `
-          <button type="button" class="picker-row" data-href="${escapeHtml(readerUrl || "")}" data-book-id="${book.id}" data-chapter-number="${ch.chapterNumber}">
-            <strong>Chapter ${ch.chapterNumber}</strong>
-            <span>${escapeHtml(formatDate(ch.releaseDate))}</span>
-          </button>
-        `;
+              <button
+                type="button"
+                class="picker-row"
+                data-href="${escapeHtml(readerUrl || "")}">
+                <strong>Chapter ${ch.chapterNumber}</strong>
+                <span>${escapeHtml(formatDate(ch.releaseDate))}</span>
+              </button>
+            `;
           })
           .join("")}
-      </div>
-    `;
-  }
+      </div>`;
 
-  overlay.querySelectorAll(".picker-row").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      const href = btn.dataset.href;
-      overlay.remove();
-      if (href) {
-        await navigateToReader(href);
-      }
-    });
+  await Swal.fire({
+    title: `Pilih Chapter - ${escapeHtml(book.title || "")}`,
+    html: chapterHtml,
+    width: 600,
+    showCloseButton: true,
+    showConfirmButton: false,
+    focusConfirm: false,
+    allowOutsideClick: true,
+    allowEscapeKey: true,
+    customClass: {
+      popup: "chapter-picker-swal",
+      htmlContainer: "chapter-picker-swal-body",
+    },
+    didOpen: (popup) => {
+      popup.querySelectorAll(".picker-row").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const href = button.dataset.href;
+          Swal.close();
+
+          if (href) {
+            await navigateToReader(href);
+          }
+        });
+      });
+    },
   });
 }
 
