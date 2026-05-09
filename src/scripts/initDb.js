@@ -1,7 +1,7 @@
-require("dotenv").config();
+import 'dotenv/config';
 
-const mysql = require("mysql2/promise");
-const { buildUniqueSlug, parseLegacyChapterNumber } = require("../utils/manga");
+import mysql from 'mysql2/promise';
+import { buildUniqueSlug } from '../utils/manga.js';
 
 const DB_HOST = process.env.DB_HOST || "localhost";
 const DB_PORT = Number(process.env.DB_PORT || 3306);
@@ -563,13 +563,4 @@ async function initDb(options = {}) {
   }
 }
 
-if (require.main === module) {
-  initDb().catch((error) => {
-    console.error("Gagal inisialisasi database:", error.message);
-    process.exit(1);
-  });
-}
-
-module.exports = {
-  initDb,
-};
+export { initDb };

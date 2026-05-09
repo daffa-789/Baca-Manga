@@ -1,5 +1,5 @@
 function normalizeDescription(value) {
-  return String(value || "").trim().slice(0, 255);
+  return String(value || '').trim().slice(0, 255);
 }
 
 async function logActivity(
@@ -34,6 +34,4 @@ async function logActivity(
   );
 }
 
-module.exports = {
-  logActivity,
-};
+export { logActivity };

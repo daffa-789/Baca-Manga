@@ -1,16 +1,20 @@
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const multer = require("multer");
-const { pool } = require("../config/db");
-const {
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import multer from 'multer';
+import { pool } from '../config/db.js';
+import {
   buildUniqueSlug,
   sortPagesByNumber,
   sanitizeFolderName,
-} = require("../utils/manga");
-const { resolveRequestUser, hasMinimumRole } = require("../utils/access");
-const { logActivity } = require("../utils/activity");
-const {
+} from '../utils/manga.js';
+import { resolveRequestUser, hasMinimumRole } from '../utils/access.js';
+import { logActivity } from '../utils/activity.js';
+import {
   BOOK_STATUSES,
   normalizeOptionalInteger,
   normalizeBookPayload,
@@ -19,8 +23,8 @@ const {
   validateChapterPayload,
   normalizeBoolean,
   serializeGenreList,
-} = require("./books-validation");
-const { mapBookRow, mapChapterRow, mapPageRow } = require("./books-mappers");
+} from './books-validation.js';
+import { mapBookRow, mapChapterRow, mapPageRow } from './books-mappers.js';
 
 const router = express.Router();
 
@@ -1696,4 +1700,5 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
+

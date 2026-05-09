@@ -1,7 +1,7 @@
-const jwt = require("jsonwebtoken");
+import jwt from 'jsonwebtoken';
 
-const AUTH_TOKEN_EXPIRES_IN = process.env.AUTH_TOKEN_EXPIRES_IN || "12h";
-const AUTH_JWT_SECRET = process.env.AUTH_JWT_SECRET || "dev-only-change-me";
+const AUTH_TOKEN_EXPIRES_IN = process.env.AUTH_TOKEN_EXPIRES_IN || '12h';
+const AUTH_JWT_SECRET = process.env.AUTH_JWT_SECRET || 'dev-only-change-me';
 const ROLE_ORDER = {
   user: 1,
   admin: 2,
@@ -9,19 +9,19 @@ const ROLE_ORDER = {
 };
 
 function normalizeEmail(value) {
-  return String(value || "")
+  return String(value || '')
     .trim()
     .toLowerCase();
 }
 
 function normalizeRole(value) {
-  const normalized = String(value || "")
+  const normalized = String(value || '')
     .trim()
     .toLowerCase();
 
   return Object.prototype.hasOwnProperty.call(ROLE_ORDER, normalized)
     ? normalized
-    : "user";
+    : 'user';
 }
 
 function hasMinimumRole(userRole, minimumRole) {
@@ -46,9 +46,9 @@ function createAuthToken(user) {
 }
 
 function getBearerToken(req) {
-  const authorization = String(req.get("authorization") || "");
+  const authorization = String(req.get('authorization') || '');
 
-  if (!authorization.toLowerCase().startsWith("bearer ")) {
+  if (!authorization.toLowerCase().startsWith('bearer ')) {
     return null;
   }
 
@@ -65,8 +65,8 @@ function verifyBearerToken(req) {
 
   try {
     const payload = jwt.verify(token, AUTH_JWT_SECRET);
-    const userId = Number.parseInt(String(payload?.sub || ""), 10);
-    const email = normalizeEmail(payload?.email || "");
+    const userId = Number.parseInt(String(payload?.sub || ''), 10);
+    const email = normalizeEmail(payload?.email || '');
 
     if (!Number.isInteger(userId) || userId <= 0 || !email) {
       return null;
@@ -89,8 +89,8 @@ function getRequestUserId(req) {
     return verifiedToken.userId;
   }
 
-  const rawValue = req.get("x-user-id") || req.body?.userId || req.query.userId;
-  const userId = Number.parseInt(String(rawValue || ""), 10);
+  const rawValue = req.get('x-user-id') || req.body?.userId || req.query.userId;
+  const userId = Number.parseInt(String(rawValue || ''), 10);
 
   if (!Number.isInteger(userId) || userId <= 0) {
     return null;
@@ -101,7 +101,7 @@ function getRequestUserId(req) {
 
 async function getUserById(connectionOrPool, userId) {
   const [rows] = await connectionOrPool.query(
-    "SELECT id, email, role, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ? LIMIT 1",
+    'SELECT id, email, role, created_at AS createdAt, updated_at AS updatedAt FROM users WHERE id = ? LIMIT 1',
     [userId],
   );
 
@@ -127,7 +127,7 @@ async function resolveRequestUser(connectionOrPool, req, options = {}) {
       user: null,
       error: {
         status: 401,
-        message: "Token login tidak valid. Silakan login ulang.",
+        message: 'Token login tidak valid. Silakan login ulang.',
       },
     };
   }
@@ -139,7 +139,7 @@ async function resolveRequestUser(connectionOrPool, req, options = {}) {
       user: null,
       error: {
         status: 401,
-        message: "User tidak valid. Silakan login ulang.",
+        message: 'User tidak valid. Silakan login ulang.',
       },
     };
   }
@@ -151,7 +151,7 @@ async function resolveRequestUser(connectionOrPool, req, options = {}) {
       user: null,
       error: {
         status: 401,
-        message: "User tidak ditemukan. Silakan login ulang.",
+        message: 'User tidak ditemukan. Silakan login ulang.',
       },
     };
   }
@@ -161,7 +161,7 @@ async function resolveRequestUser(connectionOrPool, req, options = {}) {
       user: null,
       error: {
         status: 401,
-        message: "Token login tidak cocok dengan akun user.",
+        message: 'Token login tidak cocok dengan akun user.',
       },
     };
   }
@@ -181,7 +181,7 @@ function buildAuthUserPayload(user) {
   };
 }
 
-module.exports = {
+export {
   ROLE_ORDER,
   normalizeEmail,
   normalizeRole,

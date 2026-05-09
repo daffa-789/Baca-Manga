@@ -1,4 +1,4 @@
-const { parseGenreList } = require("./books-validation");
+import { parseGenreList } from './books-validation.js';
 
 function mapBookRow(row = {}) {
   return {
@@ -9,9 +9,9 @@ function mapBookRow(row = {}) {
     author: row.author,
     genres: parseGenreList(row.genre),
     thumbnailUrl: row.thumbnailUrl || null,
-    description: row.description || "",
+    description: row.description || '',
     publishedOn: row.publishedOn || null,
-    status: row.status || "to_read",
+    status: row.status || 'to_read',
     isFavorite: Boolean(Number(row.isFavorite || 0)),
     favoriteCount: Number(row.favoriteCount || 0),
     chapterCount: Number(row.chapterCount || 0),
@@ -55,7 +55,7 @@ function mapPageRow(row = {}) {
   };
 }
 
-module.exports = {
+export {
   mapBookRow,
   mapChapterRow,
   mapPageRow,

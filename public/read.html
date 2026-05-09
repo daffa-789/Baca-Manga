@@ -8,6 +8,7 @@
       rel="stylesheet"
       href="/assets/bootstrap-icons/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="/css/reader.css" />
     <script src="/js/core.js" defer></script>
     <script src="/js/session.js" defer></script>
     <script src="/js/auth.js" defer></script>
@@ -35,7 +36,7 @@
           </div>
 
           <div class="reader-header-right">
-            <!-- chapter picker now opened from dashboard; hide redundant toggle -->
+            <button id="readerChapterToggle" class="reader-header-back" type="button" aria-label="Buka daftar chapter" title="Daftar Chapter"><i class="bi bi-list" aria-hidden="true"></i></button>
           </div>
         </div>
       </header>
@@ -43,11 +44,18 @@
       <div class="reader-layout">
         <!-- Chapter Sidebar -->
         <aside id="readerSidebar" class="reader-sidebar">
-          <div class="reader-sidebar-header" hidden>
-            <!-- sidebar header removed per UX: chapter picker handled via dashboard -->
+          <div class="reader-sidebar-header">
+            <button
+              id="readerSidebarClose"
+              class="reader-sidebar-close"
+              type="button"
+              aria-label="Tutup menu chapter">
+              <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+            <h3>Daftar Chapter</h3>
           </div>
           <div id="readerChapterList" class="reader-chapter-list"></div>
-        </aside>
+        </aside>\n\n        <!-- Sidebar Overlay -->\n        <div id="readerSidebarOverlay" class="reader-sidebar-overlay"></div>
 
         <!-- Main Reader Area -->
         <main class="reader-main">

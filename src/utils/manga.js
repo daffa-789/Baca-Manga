@@ -1,12 +1,12 @@
 function slugifyTitle(value) {
-  const normalized = String(value || "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
+  const normalized = String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
-  return normalized || "manga";
+  return normalized || 'manga';
 }
 
 function sanitizeFolderName(mangaTitle) {
@@ -21,10 +21,10 @@ async function buildUniqueSlug(connection, title, options = {}) {
 
   while (true) {
     const params = [slug];
-    let sql = "SELECT id FROM books WHERE slug = ? LIMIT 1";
+    let sql = 'SELECT id FROM books WHERE slug = ? LIMIT 1';
 
     if (excludeBookId) {
-      sql = "SELECT id FROM books WHERE slug = ? AND id <> ? LIMIT 1";
+      sql = 'SELECT id FROM books WHERE slug = ? AND id <> ? LIMIT 1';
       params.push(excludeBookId);
     }
 
@@ -39,18 +39,6 @@ async function buildUniqueSlug(connection, title, options = {}) {
   }
 }
 
-function parseLegacyChapterNumber(value, fallback = 1) {
-  const raw = String(value || "").trim();
-  const match = raw.match(/\d+/);
-  const parsed = match ? Number.parseInt(match[0], 10) : Number.NaN;
-
-  if (Number.isInteger(parsed) && parsed > 0) {
-    return parsed;
-  }
-
-  return fallback;
-}
-
 function sortPagesByNumber(pages = []) {
   return [...pages].sort((left, right) => {
     if (left.pageNumber !== right.pageNumber) {
@@ -61,9 +49,8 @@ function sortPagesByNumber(pages = []) {
   });
 }
 
-module.exports = {
+export {
   buildUniqueSlug,
-  parseLegacyChapterNumber,
   slugifyTitle,
   sortPagesByNumber,
   sanitizeFolderName,
