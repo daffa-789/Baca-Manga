@@ -119,7 +119,8 @@ body.reader-nav-visible .reader-header {
   overflow-x: hidden;
   scroll-behavior: smooth;
   position: relative;
-  padding: 0;
+  padding: 1rem 0;
+  height: 100vh;
 }
 
 /* Hide scrollbar but keep functionality */
@@ -171,27 +172,33 @@ body.reader-nav-visible .reader-header {
   flex-direction: column;
   align-items: center;
   background: #000;
-  min-height: 100vh;
+  gap: 0.5rem;
+  padding: 0;
 }
 
 .reader-page-item {
   width: 100%;
+  max-width: 900px;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  background: #000;
+  align-items: center;
+  background: #1a1a1a;
   position: relative;
+  margin: 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .reader-image-container {
   position: relative;
   width: 100%;
-  max-width: 1200px;
+  max-width: 900px;
   margin: 0 auto;
-  background: #000;
+  background: #1a1a1a;
   display: flex;
   justify-content: center;
   align-items: center;
+  overflow: hidden;
 }
 
 .reader-image {
@@ -199,14 +206,13 @@ body.reader-nav-visible .reader-header {
   height: auto;
   display: block;
   object-fit: contain;
-  max-width: 100%;
 }
 
 .reader-page-fallback {
   padding: 4rem 2rem;
   text-align: center;
   color: #666;
-  background: #000;
+  background: #1a1a1a;
 }
 
 /* Sidebar */
@@ -379,6 +385,7 @@ body.reader-nav-visible .reader-footer {
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 1.25rem;
+  z-index: 101;
 }
 
 .reader-nav-button:hover:not(:disabled) {
@@ -440,6 +447,10 @@ body.reader-nav-visible .reader-footer {
     display: flex;
   }
 
+  .reader-page-item {
+    max-width: 100%;
+  }
+
   .reader-image-container {
     max-width: 100%;
   }
@@ -466,5 +477,14 @@ body.reader-nav-visible .reader-footer {
   .reader-nav-button {
     width: 2.5rem;
     height: 2.5rem;
+  }
+
+  .reader-view {
+    padding: 0.5rem 0;
+  }
+
+  .reader-page-item {
+    max-width: 100%;
+    border-radius: 4px;
   }
 }
