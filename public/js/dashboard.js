@@ -826,54 +826,80 @@ async function openChapterPicker(bookId) {
     book = state.books.find((b) => b.id === bookId) || null;
   }
 
-  // If we don't have chapters locally, fetch the full book detail.
-  if (!book || !Array.isArray(book.chapters) || book.chapters.length === 0) {
-    try {
-      const result = await requestJson("GET", `${BOOKS_ENDPOINT}/${bookId}`);
-      book = result.data;
-    } catch (err) {
-      showFeedback("Gagal memuat daftar chapter.", "error");
-      return;
-    }
-  }
-
-  const chapters = Array.isArray(book.chapters) ? book.chapters : [];
-
   const overlay = document.createElement("div");
   overlay.id = "otaku-chapter-picker";
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
     <div class="modal-panel">
       <header class="modal-header">
-        <h3>Pilih Chapter - ${escapeHtml(book.title || "")}</h3>
-        <button class="modal-close" aria-label="Tutup">×</button>
+        <h3>Pilih Chapter</h3>
+        <button type="button" class="modal-close" aria-label="Tutup">×</button>
       </header>
       <div class="modal-body">
-        ${chapters.length === 0 ? '<p class="empty-state">Belum ada chapter.</p>' : ""}
-        <div class="chapter-picker-list">
-          ${chapters
-            .map((ch) => {
-              const readerUrl = getReaderUrl(book, ch.chapterNumber, 1);
-              return `
-            <button class="picker-row" data-href="${escapeHtml(readerUrl || "")}" data-book-id="${book.id}" data-chapter-number="${ch.chapterNumber}">
-              <strong>Chapter ${ch.chapterNumber}</strong>
-              <span>${escapeHtml(formatDate(ch.releaseDate))}</span>
-            </button>
-          `;
-            })
-            .join("")}
-        </div>
+        <p class="empty-state">Memuat daftar chapter...</p>
       </div>
     </div>
   `;
 
   document.body.appendChild(overlay);
 
-  overlay.querySelectorAll(".modal-close, .modal-overlay").forEach((el) => {
-    el.addEventListener("click", (e) => {
-      if (e.target === el) overlay.remove();
-    });
+  const closeModal = () => overlay.remove();
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      closeModal();
+    }
   });
+
+  overlay.querySelector(".modal-close")?.addEventListener("click", closeModal);
+
+  // If we don't have chapters locally, fetch the full book detail.
+  if (!book || !Array.isArray(book.chapters) || book.chapters.length === 0) {
+    try {
+      const result = await requestJson("GET", `${BOOKS_ENDPOINT}/${bookId}`);
+      book = result.data;
+    } catch (err) {
+      const modalBody = overlay.querySelector(".modal-body");
+
+      if (modalBody) {
+        modalBody.innerHTML = `
+          <p class="empty-state">Gagal memuat daftar chapter.</p>
+          <div class="button-row" style="justify-content:center; margin-top: 1rem;">
+            <button type="button" class="secondary-button small modal-close">Tutup</button>
+          </div>
+        `;
+        overlay.querySelector(".modal-close")?.addEventListener("click", closeModal);
+      } else {
+        showFeedback("Gagal memuat daftar chapter.", "error");
+        closeModal();
+      }
+      return;
+    }
+  }
+
+  const chapters = Array.isArray(book.chapters) ? book.chapters : [];
+
+  overlay.querySelector(".modal-header h3").textContent = `Pilih Chapter - ${book.title || ""}`;
+  const modalBody = overlay.querySelector(".modal-body");
+
+  if (modalBody) {
+    modalBody.innerHTML = `
+      ${chapters.length === 0 ? '<p class="empty-state">Belum ada chapter.</p>' : ""}
+      <div class="chapter-picker-list">
+        ${chapters
+          .map((ch) => {
+            const readerUrl = getReaderUrl(book, ch.chapterNumber, 1);
+            return `
+          <button type="button" class="picker-row" data-href="${escapeHtml(readerUrl || "")}" data-book-id="${book.id}" data-chapter-number="${ch.chapterNumber}">
+            <strong>Chapter ${ch.chapterNumber}</strong>
+            <span>${escapeHtml(formatDate(ch.releaseDate))}</span>
+          </button>
+        `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
 
   overlay.querySelectorAll(".picker-row").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
