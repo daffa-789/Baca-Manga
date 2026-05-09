@@ -8,12 +8,10 @@
       rel="stylesheet"
       href="/assets/bootstrap-icons/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="/css/styles.css" />
-    <link rel="stylesheet" href="/css/reader.css" />
     <script src="/js/core.js" defer></script>
     <script src="/js/session.js" defer></script>
     <script src="/js/auth.js" defer></script>
     <script src="/js/read.js" defer></script>
-    <script src="/js/reader-enhancements.js" defer></script>
   </head>
   <body class="reader-page">
     <div class="reader-container">
@@ -37,7 +35,14 @@
           </div>
 
           <div class="reader-header-right">
-            <button id="readerChapterToggle" class="reader-header-back" type="button" aria-label="Buka daftar chapter" title="Daftar Chapter"><i class="bi bi-list" aria-hidden="true"></i></button>
+            <button
+              id="readerChapterToggle"
+              class="reader-header-back"
+              type="button"
+              aria-label="Buka daftar chapter"
+              title="Daftar Chapter">
+              <i class="bi bi-list" aria-hidden="true"></i>
+            </button>
           </div>
         </div>
       </header>
@@ -56,16 +61,14 @@
             <h3>Daftar Chapter</h3>
           </div>
           <div id="readerChapterList" class="reader-chapter-list"></div>
-        </aside>\n\n        <!-- Sidebar Overlay -->\n        <div id="readerSidebarOverlay" class="reader-sidebar-overlay"></div>
+        </aside>
+        \n\n
+        <!-- Sidebar Overlay -->\n
+        <div id="readerSidebarOverlay" class="reader-sidebar-overlay"></div>
 
         <!-- Main Reader Area -->
         <main class="reader-main">
-          <article id="readerContent" class="reader-view">
-            <div class="reader-loading">
-              <div class="reader-loading-spinner"></div>
-              <p>Memuat halaman manga...</p>
-            </div>
-          </article>
+          <article id="readerContent" class="reader-view"></article>
 
           <!-- Bottom Navigation -->
           <footer class="reader-footer">
@@ -75,7 +78,7 @@
                 class="reader-nav-button"
                 type="button"
                 aria-label="Halaman sebelumnya"
-                title="Sebelumnya atau tekan tombol Ã¢â€ Â">
+                title="Sebelumnya atau tekan tombol ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Ãƒâ€šÃ‚Â">
                 <i class="bi bi-chevron-left" aria-hidden="true"></i>
               </button>
 
@@ -84,7 +87,7 @@
                 class="reader-nav-button"
                 type="button"
                 aria-label="Halaman berikutnya"
-                title="Berikutnya atau tekan tombol Ã¢â€ â€™">
+                title="Berikutnya atau tekan tombol ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢">
                 <i class="bi bi-chevron-right" aria-hidden="true"></i>
               </button>
             </div>

@@ -6,11 +6,8 @@ const state = {
   currentUser: null,
   reader: null,
   session: null,
-  drawerOpen: false,
-  interactionsAttached: false,
   pageElements: [],
   currentPageIndex: 0,
-  navVisible: false,
 };
 
 function getCurrentUserSession() {
@@ -28,23 +25,6 @@ function redirectToLogin() {
 
 function escapeHtml(value) {
   return window.OtakuCore.escapeHtml(value);
-}
-
-function renderImageWithFallback(
-  src,
-  alt,
-  fallbackLabel,
-  fallbackClass = "cover-fallback",
-) {
-  return window.OtakuCore.renderImageWithFallback(src, alt, fallbackLabel, {
-    fallbackClass,
-  });
-}
-
-function formatDate(value) {
-  return window.OtakuCore.formatDate(value, {
-    emptyLabel: "Belum diatur",
-  });
 }
 
 async function parseJsonResponse(response) {
@@ -81,40 +61,12 @@ function hydrateReaderIdentity() {
   }
 }
 
-function setNavButtonState(buttonId, href) {
-  const button = document.getElementById(buttonId);
-
-  if (!button) {
-    return;
-  }
-
-  button.dataset.href = href || "";
-  button.disabled = !href;
-}
-
-function updatePageIndicators(text) {
-  const desktopIndicator = document.getElementById("readerPageIndicator");
-  const mobileIndicator = document.getElementById("readerPageIndicatorMobile");
-
-  if (desktopIndicator) {
-    desktopIndicator.textContent = text;
-  }
-
-  if (mobileIndicator) {
-    mobileIndicator.textContent = text;
-  }
-}
-
 function updateReaderHeader(data) {
   const bookTitle = document.getElementById("readerBookTitle");
 
   if (bookTitle) {
     bookTitle.textContent = escapeHtml(data.book.title);
   }
-}
-
-function updateReaderHeaderPage(currentPage, totalPages) {
-  return;
 }
 
 function updateReaderRoutePage(pageNumber) {
@@ -148,43 +100,6 @@ function updateReaderRoutePage(pageNumber) {
   );
 }
 
-function setReaderNavigationVisible(visible) {
-  const shouldShow = Boolean(visible);
-
-  if (state.navVisible === shouldShow) {
-    return;
-  }
-
-  state.navVisible = shouldShow;
-  document.body.classList.toggle("reader-nav-visible", shouldShow);
-}
-
-function updateReaderNavVisibilityByScroll() {
-  const content = document.getElementById("readerContent");
-  const activePageElement = state.pageElements[state.currentPageIndex];
-
-  if (!content || !activePageElement) {
-    setReaderNavigationVisible(false);
-    return;
-  }
-
-  const contentRect = content.getBoundingClientRect();
-  const pageRect = activePageElement.getBoundingClientRect();
-  const reachedBottom = pageRect.bottom <= contentRect.bottom - 12;
-
-  setReaderNavigationVisible(reachedBottom);
-}
-
-function getPageNumberFromElement(pageElement, fallbackNumber) {
-  const parsed = Number(pageElement?.dataset?.pageNumber || Number.NaN);
-
-  if (Number.isInteger(parsed) && parsed > 0) {
-    return parsed;
-  }
-
-  return fallbackNumber;
-}
-
 function syncNavigationControls() {
   const totalPages = state.pageElements.length;
   const hasPrevInChapter = state.currentPageIndex > 0;
@@ -216,32 +131,34 @@ function syncNavigationControls() {
   });
 }
 
+function showCurrentPage() {
+  const totalPages = state.pageElements.length;
+
+  if (!totalPages) {
+    return;
+  }
+
+  state.pageElements.forEach((page, index) => {
+    page.style.display = index === state.currentPageIndex ? "flex" : "none";
+  });
+
+  const pageNumber = state.currentPageIndex + 1;
+  updateReaderRoutePage(pageNumber);
+  syncNavigationControls();
+}
+
 function setActivePageIndex(index) {
   const totalPages = state.pageElements.length;
 
   if (!totalPages) {
-    updatePageIndicators("0 / 0");
     syncNavigationControls();
     return;
   }
 
   const safeIndex = Math.min(Math.max(index, 0), totalPages - 1);
-  const pageElement = state.pageElements[safeIndex];
-  const pageNumber = getPageNumberFromElement(pageElement, safeIndex + 1);
 
   state.currentPageIndex = safeIndex;
-  updatePageIndicators(`${pageNumber} / ${totalPages}`);
-  updateReaderHeaderPage(pageNumber, totalPages);
-  updateReaderRoutePage(pageNumber);
-  syncNavigationControls();
-  updateReaderNavVisibilityByScroll();
-}
-
-function getPageIndexByNumber(targetPageNumber) {
-  return state.pageElements.findIndex((pageElement) => {
-    const pageNumber = getPageNumberFromElement(pageElement, Number.NaN);
-    return pageNumber === targetPageNumber;
-  });
+  showCurrentPage();
 }
 
 function renderReaderNotFound(message) {
@@ -265,14 +182,8 @@ function renderReaderNotFound(message) {
     `;
   }
 
-  updatePageIndicators("0 / 0");
-  setNavButtonState("readerPrevButton", null);
-  setNavButtonState("readerNextButton", null);
-  setNavButtonState("readerPrevButtonMobile", null);
-  setNavButtonState("readerNextButtonMobile", null);
   state.pageElements = [];
   state.currentPageIndex = 0;
-  setReaderNavigationVisible(false);
 }
 
 function renderReader(data) {
@@ -281,17 +192,15 @@ function renderReader(data) {
 
   state.reader = data;
 
-  // Update header
   updateReaderHeader(data);
 
-  // Update chapter list
   if (chapterList) {
     chapterList.innerHTML = data.chapters
       .map(
         (chapter) => `
           <a
             href="${chapter.href}"
-            class="reader-chapter-link ${chapter.isCurrent ? "is-active" : ""}"
+            class="reader-chapter-item ${chapter.isCurrent ? "active" : ""}"
             data-reader-link>
             <strong>Chapter ${chapter.chapterNumber}</strong>
           </a>
@@ -300,179 +209,57 @@ function renderReader(data) {
       .join("");
   }
 
-  // Render all pages as a long vertical strip
   if (content) {
-    const pages = Array.isArray(data.pages) ? data.pages : [data.page];
+    const pagesHtml = data.pages
+      .map(
+        (page) => `
+          <div class="reader-page-item" data-page-number="${page.pageNumber}">
+            <img
+              src="${page.imageUrl}"
+              alt="Page ${page.pageNumber}"
+              class="reader-image"
+              loading="eager" />
+          </div>
+        `,
+      )
+      .join("");
 
-    content.innerHTML = `
-      <div class="reader-stage">
-        ${pages
-          .map((p) => {
-            const imageUrl = String(p.imageUrl || "").trim();
-
-            if (!imageUrl) {
-              return `
-                  <div class="reader-page-item" data-page-number="${p.pageNumber}">
-                    <div class="reader-page-fallback">Panel tidak tersedia</div>
-                  </div>
-                `;
-            }
-
-            return `
-                <div class="reader-page-item" data-page-number="${p.pageNumber}">
-                  <img
-                    src="${escapeHtml(imageUrl)}"
-                    loading="lazy"
-                    decoding="async"
-                    alt="${escapeHtml(`${data.book.title} chapter ${data.chapter.chapterNumber} panel ${p.pageNumber}`)}"
-                    class="reader-image" />
-                </div>
-              `;
-          })
-          .join("")}
-      </div>
-    `;
-
-    // Scroll to the requested page in the route
-    const target = content.querySelector(
-      `[data-page-number="${data.page.pageNumber}"]`,
-    );
-
-    if (target) {
-      // use instant scroll so user lands on the right panel
-      target.scrollIntoView({ behavior: "auto", block: "start" });
-    }
-
-    state.pageElements = Array.from(
-      content.querySelectorAll(".reader-page-item"),
-    );
-
-    const requestedPageIndex = getPageIndexByNumber(data.page.pageNumber);
-    setActivePageIndex(requestedPageIndex >= 0 ? requestedPageIndex : 0);
-
-    // Observe page visibility to update active page state.
-    if (typeof IntersectionObserver !== "undefined") {
-      if (window._otakuPageObserver) {
-        window._otakuPageObserver.disconnect();
-      }
-
-      const observer = new IntersectionObserver(
-        (entries) => {
-          const visibleEntries = entries
-            .filter((entry) => entry.isIntersecting)
-            .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-
-          if (visibleEntries.length === 0) {
-            return;
-          }
-
-          const activeElement = visibleEntries[0].target;
-          const pageNumber = getPageNumberFromElement(activeElement, 1);
-          const nextIndex = getPageIndexByNumber(pageNumber);
-
-          if (nextIndex >= 0) {
-            setActivePageIndex(nextIndex);
-          }
-        },
-        { root: null, rootMargin: "0px", threshold: 0.6 },
-      );
-
-      window._otakuPageObserver = observer;
-      content.querySelectorAll(".reader-page-item").forEach((el) => {
-        observer.observe(el);
-      });
-    }
+    content.innerHTML = pagesHtml;
   }
 
-  // Keep chapter-edge fallback href for first/last page transitions.
-  setNavButtonState("readerPrevButton", data.pager.previous?.href || null);
-  setNavButtonState("readerNextButton", data.pager.next?.href || null);
-  setNavButtonState(
-    "readerPrevButtonMobile",
-    data.pager.previous?.href || null,
+  state.pageElements = Array.from(
+    document.querySelectorAll(".reader-page-item"),
   );
-  setNavButtonState("readerNextButtonMobile", data.pager.next?.href || null);
-  syncNavigationControls();
-  updateReaderNavVisibilityByScroll();
+
+  const route = parseReaderRoute();
+  const initialPageNumber = Number.parseInt(route?.page || "1", 10);
+  const initialPageIndex = initialPageNumber - 1;
+
+  setActivePageIndex(initialPageIndex >= 0 ? initialPageIndex : 0);
 }
 
 async function fetchReaderData(route) {
-  const response = await fetch(
-    `${READER_ENDPOINT}/${encodeURIComponent(route.slug)}/${encodeURIComponent(route.chapter)}/${encodeURIComponent(route.page)}`,
-    {
-      headers: getAuthHeaders(),
-    },
-  );
-
-  const result = await parseJsonResponse(response);
-
-  if (response.status === 401) {
-    redirectToLogin();
-    throw new Error(result.message || "Session berakhir. Silakan login ulang.");
-  }
-
-  return {
-    ok: response.ok,
-    status: response.status,
-    result,
-  };
-}
-
-function startReadingSession() {
-  if (!state.reader?.book?.id || !state.reader?.chapter?.id) {
-    return;
-  }
-
-  state.session = {
-    bookId: state.reader.book.id,
-    chapterId: state.reader.chapter.id,
-    startedAt: Date.now(),
-  };
-}
-
-async function flushReadingSession(options = {}) {
-  const { background = false } = options;
-  const currentSession = state.session;
-
-  if (!currentSession?.startedAt) {
-    return;
-  }
-
-  state.session = null;
-  const durationSeconds = Math.floor(
-    (Date.now() - currentSession.startedAt) / 1000,
-  );
-
-  if (durationSeconds < MIN_SESSION_SECONDS) {
-    return;
-  }
-
-  const payload = {
-    userId: state.currentUser.id,
-    chapterId: currentSession.chapterId,
-    durationSeconds,
-  };
-  const url = `${BOOKS_ENDPOINT}/${currentSession.bookId}/reading-sessions`;
-
-  if (background && navigator.sendBeacon) {
-    const blob = new Blob([JSON.stringify(payload)], {
-      type: "application/json",
-    });
-    navigator.sendBeacon(url, blob);
-    return;
-  }
+  const url = `${READER_ENDPOINT}/${route.slug}/${route.chapter}/${route.page}`;
 
   try {
-    await fetch(url, {
-      method: "POST",
-      headers: getAuthHeaders({
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify(payload),
-      keepalive: background,
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getAuthHeaders(),
     });
+
+    const result = await parseJsonResponse(response);
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      result,
+    };
   } catch (error) {
-    console.warn("Gagal menyimpan sesi baca:", error.message);
+    return {
+      ok: false,
+      status: 0,
+      result: { message: error.message },
+    };
   }
 }
 
@@ -481,102 +268,177 @@ async function navigateToReader(href) {
     return;
   }
 
-  await flushReadingSession();
-  window.location.assign(href);
-}
-
-function scrollToPageByIndex(index) {
-  const target = state.pageElements[index];
-
-  if (!target) {
-    return false;
-  }
-
-  setActivePageIndex(index);
-  target.scrollIntoView({ behavior: "smooth", block: "start" });
-  return true;
+  window.location.href = href;
 }
 
 async function handleDirectionalNavigation(direction) {
   const totalPages = state.pageElements.length;
 
-  if (!totalPages || !state.reader) {
+  if (!totalPages) {
     return;
   }
 
   const nextIndex = state.currentPageIndex + direction;
 
   if (nextIndex >= 0 && nextIndex < totalPages) {
-    scrollToPageByIndex(nextIndex);
-    return;
-  }
-
-  if (direction > 0 && state.reader?.pager?.next?.href) {
-    await navigateToReader(state.reader.pager.next.href);
+    setActivePageIndex(nextIndex);
     return;
   }
 
   if (direction < 0 && state.reader?.pager?.previous?.href) {
     await navigateToReader(state.reader.pager.previous.href);
-  }
-}
-
-function attachReaderInteractions() {
-  if (state.interactionsAttached) {
     return;
   }
 
-  state.interactionsAttached = true;
+  if (direction > 0 && state.reader?.pager?.next?.href) {
+    await navigateToReader(state.reader.pager.next.href);
+  }
+}
+
+async function startReadingSession() {
+  if (!state.reader) {
+    return;
+  }
+
+  const { book, chapter } = state.reader;
+
+  state.session = {
+    bookId: book.id,
+    chapterId: chapter.id,
+    startedAt: Date.now(),
+  };
+}
+
+async function flushReadingSession(options = {}) {
+  if (!state.session) {
+    return;
+  }
+
+  const elapsed = Math.floor((Date.now() - state.session.startedAt) / 1000);
+
+  if (elapsed < MIN_SESSION_SECONDS) {
+    return;
+  }
+
+  const payload = {
+    bookId: state.session.bookId,
+    chapterId: state.session.chapterId,
+    durationSeconds: elapsed,
+  };
+
+  try {
+    const response = await fetch(BOOKS_ENDPOINT, {
+      method: "POST",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(payload),
+      keepalive: options.background || false,
+    });
+
+    if (!response.ok) {
+      console.warn("Failed to flush reading session");
+    }
+  } catch (error) {
+    console.warn("Error flushing reading session:", error.message);
+  }
+
+  state.session.startedAt = Date.now();
+}
+
+function attachReaderInteractions() {
   const sidebar = document.getElementById("readerSidebar");
-  const menuToggle = document.getElementById("readerChapterMenuToggle");
-  const menuClose = document.getElementById("readerChapterMenuClose");
+  const sidebarOverlay = document.getElementById("readerSidebarOverlay");
+  const sidebarToggle = document.getElementById("readerChapterToggle");
+  const sidebarClose = document.getElementById("readerSidebarClose");
   const readerContent = document.getElementById("readerContent");
 
-  // Sidebar toggle
-  if (menuToggle) {
-    menuToggle.addEventListener("click", () => {
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", () => {
       sidebar?.classList.toggle("is-open");
     });
   }
 
-  if (menuClose) {
-    menuClose.addEventListener("click", () => {
+  if (sidebarClose) {
+    sidebarClose.addEventListener("click", () => {
       sidebar?.classList.remove("is-open");
     });
   }
 
-  document.getElementById("readerPrevButton")?.addEventListener("click", () => {
-    handleDirectionalNavigation(-1).catch(() => {});
-  });
-  document
-    .getElementById("readerPrevButtonMobile")
-    ?.addEventListener("click", () => {
-      handleDirectionalNavigation(-1).catch(() => {});
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener("click", () => {
+      sidebar?.classList.remove("is-open");
     });
-  document.getElementById("readerNextButton")?.addEventListener("click", () => {
-    handleDirectionalNavigation(1).catch(() => {});
-  });
-  document
-    .getElementById("readerNextButtonMobile")
-    ?.addEventListener("click", () => {
-      handleDirectionalNavigation(1).catch(() => {});
-    });
+  }
 
-  document.body.addEventListener("click", async (event) => {
-    const link = event.target.closest("[data-reader-link]");
-    const edgeButton = event.target.closest("[data-reader-href]");
+  ["readerPrevButton", "readerPrevButtonMobile"].forEach((id) => {
+    const button = document.getElementById(id);
 
-    if (edgeButton) {
-      const href = edgeButton.dataset.readerHref;
+    if (!button) {
+      return;
+    }
 
-      if (!href) {
+    button.addEventListener("click", async () => {
+      if (button.disabled) {
         return;
       }
 
-      event.preventDefault();
-      await navigateToReader(href);
+      const href = button.dataset.href;
+
+      if (href) {
+        await navigateToReader(href);
+      } else {
+        await handleDirectionalNavigation(-1);
+      }
+    });
+  });
+
+  ["readerNextButton", "readerNextButtonMobile"].forEach((id) => {
+    const button = document.getElementById(id);
+
+    if (!button) {
       return;
     }
+
+    button.addEventListener("click", async () => {
+      if (button.disabled) {
+        return;
+      }
+
+      const href = button.dataset.href;
+
+      if (href) {
+        await navigateToReader(href);
+      } else {
+        await handleDirectionalNavigation(1);
+      }
+    });
+  });
+
+  if (readerContent) {
+    readerContent.addEventListener("click", (event) => {
+      if (
+        event.target.closest(
+          "button, a, [data-reader-link]",
+        )
+      ) {
+        return;
+      }
+
+      const rect = readerContent.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const width = rect.width;
+      const leftThird = width / 3;
+      const rightThird = (width * 2) / 3;
+
+      if (clickX < leftThird) {
+        handleDirectionalNavigation(-1);
+      } else if (clickX > rightThird) {
+        handleDirectionalNavigation(1);
+      }
+    });
+  }
+
+  document.body.addEventListener("click", async (event) => {
+    const link = event.target.closest("[data-reader-link]");
 
     if (!link) {
       return;
@@ -609,7 +471,6 @@ function attachReaderInteractions() {
       await handleDirectionalNavigation(1);
     }
 
-    // Close sidebar on Escape
     if (event.key === "Escape") {
       sidebar?.classList.remove("is-open");
     }
@@ -618,12 +479,6 @@ function attachReaderInteractions() {
   window.addEventListener("beforeunload", () => {
     flushReadingSession({ background: true }).catch(() => {});
   });
-
-  if (readerContent) {
-    readerContent.addEventListener("scroll", () => {
-      updateReaderNavVisibilityByScroll();
-    });
-  }
 }
 
 async function initReaderPage() {
