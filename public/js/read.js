@@ -174,9 +174,14 @@ function setActivePageIndex(index) {
 
 function renderReaderNotFound(message) {
   const rightChapterList = document.getElementById("readerRightChapterList");
+  const rightChapterMeta = document.getElementById("readerRightChapterMeta");
   const content = document.getElementById("readerContent");
   const emptyChapterMessage =
     '<p class="empty-state">Tidak ada daftar chapter untuk ditampilkan.</p>';
+
+  if (rightChapterMeta) {
+    rightChapterMeta.textContent = "0 chapter";
+  }
 
   if (rightChapterList) {
     rightChapterList.innerHTML = emptyChapterMessage;
@@ -200,6 +205,7 @@ function renderReaderNotFound(message) {
 
 function renderReader(data) {
   const rightChapterList = document.getElementById("readerRightChapterList");
+  const rightChapterMeta = document.getElementById("readerRightChapterMeta");
   const content = document.getElementById("readerContent");
 
   state.reader = data;
@@ -218,6 +224,17 @@ function renderReader(data) {
       `,
     )
     .join("");
+
+  if (rightChapterMeta) {
+    const chapterCount = Array.isArray(data.chapters)
+      ? data.chapters.length
+      : 0;
+    const currentChapter = Number(data?.chapter?.chapterNumber || 0);
+    rightChapterMeta.textContent =
+      chapterCount > 0
+        ? `Total ${chapterCount} chapter • Sekarang Chapter ${currentChapter || 1}`
+        : "0 chapter";
+  }
 
   if (rightChapterList) {
     rightChapterList.innerHTML = chaptersHtml;
