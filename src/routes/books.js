@@ -1,19 +1,19 @@
-import express from 'express';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import express from "express";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import multer from 'multer';
-import { pool } from '../config/db.js';
+import multer from "multer";
+import { pool } from "../config/db.js";
 import {
   buildUniqueSlug,
   sortPagesByNumber,
   sanitizeFolderName,
-} from '../utils/manga.js';
-import { resolveRequestUser, hasMinimumRole } from '../utils/access.js';
-import { logActivity } from '../utils/activity.js';
+} from "../utils/manga.js";
+import { resolveRequestUser, hasMinimumRole } from "../utils/access.js";
+import { logActivity } from "../utils/activity.js";
 import {
   BOOK_STATUSES,
   normalizeOptionalInteger,
@@ -23,10 +23,16 @@ import {
   validateChapterPayload,
   normalizeBoolean,
   serializeGenreList,
-} from './books-validation.js';
-import { mapBookRow, mapChapterRow, mapPageRow } from './books-mappers.js';
+} from "./books-validation.js";
+import { mapBookRow, mapChapterRow, mapPageRow } from "./books-mappers.js";
+import { cache } from "../utils/cache.js";
 
 const router = express.Router();
+
+// Cache configuration
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const PAGINATION_DEFAULT_LIMIT = 12;
+const PAGINATION_MAX_LIMIT = 100;
 
 const MAX_THUMBNAIL_SIZE = 10 * 1024 * 1024;
 const MAX_PAGE_IMAGE_SIZE = 8 * 1024 * 1024;
@@ -346,6 +352,173 @@ async function getChapterOwnership(connection, bookId, chapterId) {
   return rows[0] || null;
 }
 
+// ============ Cache Helper Functions ============
+function getCacheKeyBooks(userId, options = {}) {
+  const {
+    favoritesOnly = false,
+    page = 1,
+    limit = PAGINATION_DEFAULT_LIMIT,
+  } = options;
+  const type = favoritesOnly ? "favorites" : "all";
+  return `books:${userId}:${type}:page${page}:limit${limit}`;
+}
+
+function getCacheKeyBookDetail(bookId) {
+  return `book:${bookId}:detail`;
+}
+
+function invalidateUserBooksCache(userId) {
+  // Invalidate all books cache for this user
+  cache.invalidatePattern(`books:${userId}:.*`);
+  cache.invalidatePattern(`book:.*:detail`);
+}
+
+function invalidateBookCache(bookId) {
+  cache.delete(`book:${bookId}:detail`);
+  // Also invalidate all user books caches since book details changed
+  cache.invalidatePattern(`books:.*`);
+}
+
+// ============ Pagination Helper Functions ============
+function parsePositiveIntegerParam(value, defaultValue = 1, maxValue = 100) {
+  const num = Number.parseInt(String(value || ""), 10);
+  if (!Number.isInteger(num) || num < 1) return defaultValue;
+  return Math.min(num, maxValue);
+}
+
+async function fetchBooksWithPagination(
+  connection,
+  currentUserId,
+  options = {},
+) {
+  const {
+    favoritesOnly = false,
+    page = 1,
+    limit = PAGINATION_DEFAULT_LIMIT,
+    useCache = true,
+  } = options;
+
+  // Check cache first
+  if (useCache) {
+    const cacheKey = getCacheKeyBooks(currentUserId, {
+      favoritesOnly,
+      page,
+      limit,
+    });
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const safePage = Math.max(1, page);
+  const safeLimit = Math.min(Math.max(1, limit), PAGINATION_MAX_LIMIT);
+  const offset = (safePage - 1) * safeLimit;
+
+  const params = [currentUserId, currentUserId];
+  let favoriteClause = "";
+
+  if (favoritesOnly) {
+    favoriteClause = "WHERE uf.user_id IS NOT NULL";
+  }
+
+  // Get total count
+  const [countRows] = await connection.query(
+    `SELECT COUNT(*) AS total
+     FROM books b
+     LEFT JOIN user_favorites uf
+       ON uf.book_id = b.id AND uf.user_id = ?
+     ${favoritesOnly ? "WHERE uf.user_id IS NOT NULL" : ""}`,
+    [currentUserId],
+  );
+  const totalBooks = countRows[0]?.total || 0;
+  const totalPages = Math.ceil(totalBooks / safeLimit);
+
+  // Get paginated books
+  const [rows] = await connection.query(
+    `SELECT b.id,
+            b.display_order AS displayOrder,
+            b.title,
+            b.slug,
+            b.author,
+            b.genre,
+            b.thumbnail_url AS thumbnailUrl,
+            b.description,
+            b.published_on AS publishedOn,
+            b.status,
+            b.user_id AS createdByUserId,
+            owner.email AS createdByEmail,
+            owner.role AS createdByRole,
+            b.created_at AS createdAt,
+            b.updated_at AS updatedAt,
+            COALESCE(cs.chapterCount, 0) AS chapterCount,
+            COALESCE(cs.panelCount, 0) AS panelCount,
+            cs.firstChapterNumber,
+            cs.latestChapterNumber,
+            CASE WHEN uf.user_id IS NULL THEN 0 ELSE 1 END AS isFavorite,
+            COALESCE(fc.favoriteCount, 0) AS favoriteCount,
+            COALESCE(rs.totalReads, 0) AS totalReads,
+            COALESCE(rs.totalReadSeconds, 0) AS totalReadSeconds,
+            rs.lastReadAt
+     FROM books b
+     LEFT JOIN users owner ON owner.id = b.user_id
+     LEFT JOIN (
+       SELECT book_id,
+              COUNT(*) AS chapterCount,
+              COALESCE(SUM(page_count), 0) AS panelCount,
+              MIN(chapter_number) AS firstChapterNumber,
+              MAX(chapter_number) AS latestChapterNumber
+       FROM chapters
+       GROUP BY book_id
+     ) cs ON cs.book_id = b.id
+     LEFT JOIN user_favorites uf
+       ON uf.book_id = b.id AND uf.user_id = ?
+     LEFT JOIN (
+       SELECT book_id, COUNT(*) AS favoriteCount
+       FROM user_favorites
+       GROUP BY book_id
+     ) fc ON fc.book_id = b.id
+     LEFT JOIN (
+       SELECT book_id,
+              COUNT(*) AS totalReads,
+              COALESCE(SUM(duration_seconds), 0) AS totalReadSeconds,
+              MAX(created_at) AS lastReadAt
+       FROM reading_sessions
+       WHERE user_id = ?
+       GROUP BY book_id
+     ) rs ON rs.book_id = b.id
+     ${favoriteClause}
+     ORDER BY b.updated_at DESC, b.display_order ASC, b.id DESC
+     LIMIT ? OFFSET ?`,
+    [...params, safeLimit, offset],
+  );
+
+  const books = rows.map(mapBookRow);
+  const result = {
+    books,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total: totalBooks,
+      totalPages,
+      hasNextPage: safePage < totalPages,
+      hasPrevPage: safePage > 1,
+    },
+  };
+
+  // Cache result
+  if (useCache) {
+    const cacheKey = getCacheKeyBooks(currentUserId, {
+      favoritesOnly,
+      page,
+      limit,
+    });
+    cache.set(cacheKey, result, CACHE_DURATION_MS);
+  }
+
+  return result;
+}
+
 async function fetchBooks(connection, currentUserId, options = {}) {
   const { favoritesOnly = false } = options;
   const params = [currentUserId, currentUserId];
@@ -584,12 +757,24 @@ router.use(async (req, res, next) => {
 
 router.get("/", async (req, res) => {
   try {
-    const books = await fetchBooks(pool, req.user.id);
+    const page = parsePositiveIntegerParam(req.query.page, 1);
+    const limit = parsePositiveIntegerParam(
+      req.query.limit,
+      PAGINATION_DEFAULT_LIMIT,
+      PAGINATION_MAX_LIMIT,
+    );
+
+    const result = await fetchBooksWithPagination(pool, req.user.id, {
+      favoritesOnly: false,
+      page,
+      limit,
+    });
 
     return res.status(200).json({
       status: "success",
       message: "Daftar manga berhasil dimuat.",
-      data: books,
+      data: result.books,
+      pagination: result.pagination,
     });
   } catch (error) {
     console.error("Books list error:", error.message);
@@ -602,12 +787,24 @@ router.get("/", async (req, res) => {
 
 router.get("/favorites", async (req, res) => {
   try {
-    const books = await fetchBooks(pool, req.user.id, { favoritesOnly: true });
+    const page = parsePositiveIntegerParam(req.query.page, 1);
+    const limit = parsePositiveIntegerParam(
+      req.query.limit,
+      PAGINATION_DEFAULT_LIMIT,
+      PAGINATION_MAX_LIMIT,
+    );
+
+    const result = await fetchBooksWithPagination(pool, req.user.id, {
+      favoritesOnly: true,
+      page,
+      limit,
+    });
 
     return res.status(200).json({
       status: "success",
       message: "Daftar manga favorit berhasil dimuat.",
-      data: books,
+      data: result.books,
+      pagination: result.pagination,
     });
   } catch (error) {
     console.error("Favorites error:", error.message);
@@ -798,6 +995,8 @@ router.post("/", async (req, res) => {
     );
 
     await connection.commit();
+
+    invalidateUserBooksCache(req.user.id);
 
     const book = await fetchBookById(pool, req.user.id, result.insertId);
 
@@ -1385,6 +1584,8 @@ router.post("/:id/favorite", async (req, res) => {
       },
     );
 
+    invalidateUserBooksCache(req.user.id);
+
     const book = await fetchBookById(pool, req.user.id, bookId);
 
     return res.status(200).json({
@@ -1599,6 +1800,8 @@ router.put("/:id", async (req, res) => {
 
     await connection.commit();
 
+    invalidateUserBooksCache(req.user.id);
+
     const book = await fetchBookById(connection, req.user.id, bookId);
 
     return res.status(200).json({
@@ -1684,6 +1887,8 @@ router.delete("/:id", async (req, res) => {
       ...pageRows.map((row) => row.imageUrl),
     ]);
 
+    invalidateUserBooksCache(req.user.id);
+
     return res.status(200).json({
       status: "success",
       message: "Manga berhasil dihapus.",
@@ -1701,4 +1906,3 @@ router.delete("/:id", async (req, res) => {
 });
 
 export default router;
-

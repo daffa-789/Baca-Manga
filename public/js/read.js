@@ -10,6 +10,23 @@ const state = {
   currentPageIndex: 0,
 };
 
+function cacheReaderDom() {
+  state.dom = {
+    readerContent: document.getElementById("readerContent"),
+    rightChapterList: document.getElementById("readerRightChapterList"),
+    rightChapterMeta: document.getElementById("readerRightChapterMeta"),
+    rightSidebar: document.getElementById("readerRightSidebar"),
+    rightSidebarClose: document.getElementById("readerRightClose"),
+    rightToggle: document.getElementById("readerRightToggle"),
+    headerToggle: document.getElementById("readerHeaderToggle"),
+    headerRestore: document.getElementById("readerHeaderRestore"),
+    prevButton: document.getElementById("readerPrevButton"),
+    nextButton: document.getElementById("readerNextButton"),
+    prevButtonMobile: document.getElementById("readerPrevButtonMobile"),
+    nextButtonMobile: document.getElementById("readerNextButtonMobile"),
+  };
+}
+
 function getCurrentUserSession() {
   return window.OtakuSession.getCurrentUserSession();
 }
@@ -65,7 +82,8 @@ function syncReaderHeaderControls() {
   const isCollapsed = document.body.classList.contains(
     "reader-header-collapsed",
   );
-  const headerRestore = document.getElementById("readerHeaderRestore");
+  const headerRestore =
+    state.dom?.headerRestore || document.getElementById("readerHeaderRestore");
 
   if (headerRestore) {
     headerRestore.setAttribute("aria-hidden", isCollapsed ? "false" : "true");
@@ -118,27 +136,20 @@ function syncNavigationControls() {
     totalPages > 0 && state.currentPageIndex < totalPages - 1;
   const previousHref = state.reader?.pager?.previous?.href || "";
   const nextHref = state.reader?.pager?.next?.href || "";
-
-  ["readerPrevButton", "readerPrevButtonMobile"].forEach((id) => {
-    const button = document.getElementById(id);
-
-    if (!button) {
-      return;
-    }
-
-    button.dataset.href = previousHref;
-    button.disabled = !hasPrevInChapter && !previousHref;
+  const prevButtons = [state.dom?.prevButton, state.dom?.prevButtonMobile];
+  prevButtons.forEach((button) => {
+    const btn = button || null;
+    if (!btn) return;
+    btn.dataset.href = previousHref;
+    btn.disabled = !hasPrevInChapter && !previousHref;
   });
 
-  ["readerNextButton", "readerNextButtonMobile"].forEach((id) => {
-    const button = document.getElementById(id);
-
-    if (!button) {
-      return;
-    }
-
-    button.dataset.href = nextHref;
-    button.disabled = !hasNextInChapter && !nextHref;
+  const nextButtons = [state.dom?.nextButton, state.dom?.nextButtonMobile];
+  nextButtons.forEach((button) => {
+    const btn = button || null;
+    if (!btn) return;
+    btn.dataset.href = nextHref;
+    btn.disabled = !hasNextInChapter && !nextHref;
   });
 }
 
@@ -149,8 +160,31 @@ function showCurrentPage() {
     return;
   }
 
-  state.pageElements.forEach((page, index) => {
-    page.style.display = index === state.currentPageIndex ? "flex" : "none";
+  // Batch DOM writes in RAF to avoid layout thrash
+  window.requestAnimationFrame(() => {
+    state.pageElements.forEach((page, index) => {
+      page.style.display = index === state.currentPageIndex ? "flex" : "none";
+      const img = page.querySelector && page.querySelector("img.reader-image");
+      if (img) {
+        // make current and immediate neighbours eager for smooth next/prev
+        if (index === state.currentPageIndex) {
+          try {
+            img.loading = "eager";
+            img.decode?.().catch(() => {});
+          } catch (e) {
+            // ignore
+          }
+        } else if (
+          index === state.currentPageIndex + 1 ||
+          index === state.currentPageIndex - 1
+        ) {
+          img.loading = "eager";
+          img.decode?.().catch(() => {});
+        } else {
+          img.loading = "lazy";
+        }
+      }
+    });
   });
 
   const pageNumber = state.currentPageIndex + 1;
@@ -173,9 +207,14 @@ function setActivePageIndex(index) {
 }
 
 function renderReaderNotFound(message) {
-  const rightChapterList = document.getElementById("readerRightChapterList");
-  const rightChapterMeta = document.getElementById("readerRightChapterMeta");
-  const content = document.getElementById("readerContent");
+  const rightChapterList =
+    state.dom?.rightChapterList ||
+    document.getElementById("readerRightChapterList");
+  const rightChapterMeta =
+    state.dom?.rightChapterMeta ||
+    document.getElementById("readerRightChapterMeta");
+  const content =
+    state.dom?.readerContent || document.getElementById("readerContent");
   const emptyChapterMessage =
     '<p class="empty-state">Tidak ada daftar chapter untuk ditampilkan.</p>';
 
@@ -204,9 +243,14 @@ function renderReaderNotFound(message) {
 }
 
 function renderReader(data) {
-  const rightChapterList = document.getElementById("readerRightChapterList");
-  const rightChapterMeta = document.getElementById("readerRightChapterMeta");
-  const content = document.getElementById("readerContent");
+  const rightChapterList =
+    state.dom?.rightChapterList ||
+    document.getElementById("readerRightChapterList");
+  const rightChapterMeta =
+    state.dom?.rightChapterMeta ||
+    document.getElementById("readerRightChapterMeta");
+  const content =
+    state.dom?.readerContent || document.getElementById("readerContent");
 
   state.reader = data;
 
@@ -249,7 +293,7 @@ function renderReader(data) {
               src="${page.imageUrl}"
               alt="Page ${page.pageNumber}"
               class="reader-image"
-              loading="eager" />
+              loading="lazy" />
           </div>
         `,
       )
@@ -376,11 +420,16 @@ async function flushReadingSession(options = {}) {
 }
 
 function attachReaderInteractions() {
-  const rightSidebar = document.getElementById("readerRightSidebar");
-  const rightSidebarClose = document.getElementById("readerRightClose");
-  const readerContent = document.getElementById("readerContent");
-  const rightToggle = document.getElementById("readerRightToggle");
-  const headerToggle = document.getElementById("readerHeaderToggle");
+  const rightSidebar =
+    state.dom?.rightSidebar || document.getElementById("readerRightSidebar");
+  const rightSidebarClose =
+    state.dom?.rightSidebarClose || document.getElementById("readerRightClose");
+  const readerContent =
+    state.dom?.readerContent || document.getElementById("readerContent");
+  const rightToggle =
+    state.dom?.rightToggle || document.getElementById("readerRightToggle");
+  const headerToggle =
+    state.dom?.headerToggle || document.getElementById("readerHeaderToggle");
 
   if (rightToggle && rightSidebar) {
     rightToggle.addEventListener("click", () => {
@@ -401,7 +450,8 @@ function attachReaderInteractions() {
     });
   }
 
-  const headerRestore = document.getElementById("readerHeaderRestore");
+  const headerRestore =
+    state.dom?.headerRestore || document.getElementById("readerHeaderRestore");
 
   if (headerRestore) {
     headerRestore.addEventListener("click", () => {
@@ -410,20 +460,15 @@ function attachReaderInteractions() {
     });
   }
 
-  ["readerPrevButton", "readerPrevButtonMobile"].forEach((id) => {
-    const button = document.getElementById(id);
-
-    if (!button) {
-      return;
-    }
-
+  [
+    state.dom?.prevButton || document.getElementById("readerPrevButton"),
+    state.dom?.prevButtonMobile ||
+      document.getElementById("readerPrevButtonMobile"),
+  ].forEach((button) => {
+    if (!button) return;
     button.addEventListener("click", async () => {
-      if (button.disabled) {
-        return;
-      }
-
+      if (button.disabled) return;
       const href = button.dataset.href;
-
       if (href) {
         await navigateToReader(href);
       } else {
@@ -432,20 +477,15 @@ function attachReaderInteractions() {
     });
   });
 
-  ["readerNextButton", "readerNextButtonMobile"].forEach((id) => {
-    const button = document.getElementById(id);
-
-    if (!button) {
-      return;
-    }
-
+  [
+    state.dom?.nextButton || document.getElementById("readerNextButton"),
+    state.dom?.nextButtonMobile ||
+      document.getElementById("readerNextButtonMobile"),
+  ].forEach((button) => {
+    if (!button) return;
     button.addEventListener("click", async () => {
-      if (button.disabled) {
-        return;
-      }
-
+      if (button.disabled) return;
       const href = button.dataset.href;
-
       if (href) {
         await navigateToReader(href);
       } else {
@@ -539,6 +579,7 @@ async function initReaderPage() {
   }
 
   hydrateReaderIdentity();
+  cacheReaderDom();
   document.body.classList.add("reader-nav-visible");
   syncReaderHeaderControls();
   attachReaderInteractions();

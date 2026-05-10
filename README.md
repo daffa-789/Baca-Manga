@@ -6,6 +6,22 @@ Otaku Shelf adalah platform aplikasi web untuk membaca dan mengelola katalog man
 
 - **Autentikasi Aman:** Sistem Login dan Register menggunakan JWT (JSON Web Token).
 - **Role-Based Access Control (RBAC):** Pembatasan akses ke menu dan fitur berdasarkan set role (Super Admin, Admin, User).
+
+## Perubahan Reader (ringkasan)
+
+Perubahan berikut diterapkan pada fitur Reader untuk perbaikan UX, tampilan, dan bugfix:
+
+- **Animasi header:** Perbaikan agar tombol sembunyikan header benar-benar menggeser header ke atas dengan animasi halus dan tombol restore muncul saat collapsed.
+- **Sidebar chapter direlokasi:** Daftar chapter sekarang hanya ditampilkan di sidebar kanan (panel "Daftar Chapter"). Sidebar kiri reader dihapus untuk mengurangi duplikasi.
+- **Tata letak dan styling sidebar:** Panel kanan mendapatkan styling baru (background blur, shadow, header meta, daftar chapter sebagai card), empty-state lebih rapi, dan tombol tutup diganti menjadi panah.
+- **Activity logs dipindah:** Activity logs dihapus dari reader (tidak tampil di panel reader); fitur logs tetap ada di dashboard admin.
+- **Perbaikan tombol & ikon:** Tombol "garis 3" (list icon) diganti / dipindahkan agar fungsinya menjadi membuka sidebar kanan; tombol-tombol yang tidak terpakai dihapus.
+- **Kontras dan warna teks:** Peningkatan warna teks di reader agar kontras lebih baik terhadap latar gelap.
+- **Responsif terpadu:** Breakpoint responsive disederhanakan menjadi dua ukuran utama untuk reader: `768px` (tablet) dan `640px` (mobile) untuk memastikan tata letak yang konsisten.
+- **Perbaikan RBAC (frontend):** Bug di dashboard yang menyebabkan daftar user kosong diperbaiki — frontend kini membaca `data.users` dari API sesuai respons backend.
+
+Jika ingin, saya bisa menambahkan catatan changelog lebih detail atau membuat entry versi di root `CHANGELOG.md`.
+
 - **Manga Reader Sederhana:** Tampilan halaman pembaca manga interaktif dengan navigasi chapter dan sidebar terintegrasi.
 - **Manajemen Katalog & Chapter:** Upload cover (thumbnail) manga dan gambar halaman chapter secara teratur menggunakan Multer.
 - **Manga Favorit:** User dapat menandai dan menyimpan koleksi manga favorit.

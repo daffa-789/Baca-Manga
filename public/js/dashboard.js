@@ -58,19 +58,18 @@ const state = {
     add: null,
     edit: null,
   },
+  // Memoization cache for rendered lists
+  memoCache: {
+    catalogGrid: { data: null, hash: null, html: null },
+    favoritesGrid: { data: null, hash: null, html: null },
+    editMangaGallery: { data: null, hash: null, html: null },
+    databaseList: { data: null, hash: null, html: null },
+    editChapterList: { data: null, hash: null, html: null },
+  },
 };
 
-function getCurrentUserSession() {
-  return window.OtakuSession.getCurrentUserSession();
-}
-
-function setCurrentUserSession(userData) {
-  window.OtakuSession.setCurrentUserSession(userData);
-}
-
-function clearCurrentUserSession() {
-  window.OtakuSession.clearCurrentUserSession();
-}
+// Session helpers live in `session.js` as `window.OtakuSession`.
+// Use `window.OtakuSession` directly instead of duplicating wrappers here.
 
 function isSuperAdminUser(user = state.currentUser) {
   return String(user?.role || "user") === "super_admin";
@@ -89,11 +88,11 @@ function canManageCatalog(user = state.currentUser) {
 }
 
 function canManageUsers(user = state.currentUser) {
-  return isAdminUser(user) || isSuperAdminUser(user);
+  return isSuperAdminUser(user);
 }
 
 function canViewLogs(user = state.currentUser) {
-  return canManageCatalog(user);
+  return isSuperAdminUser(user);
 }
 
 function getRoleLabel(role) {
@@ -106,7 +105,7 @@ function getAllowedTabs() {
   }
 
   if (isAdminUser()) {
-    return ["overview", "add-manga", "edit-manga", "database", "logs"];
+    return ["overview", "add-manga", "edit-manga", "database"];
   }
 
   return ["overview", "favorites"];
@@ -117,7 +116,7 @@ function getDefaultTab() {
 }
 
 function redirectToLogin() {
-  clearCurrentUserSession();
+  window.OtakuSession.clearCurrentUserSession();
   window.location.replace("/login.html");
 }
 
@@ -153,6 +152,43 @@ function parsePositiveInteger(value) {
 
 function normalizePositiveInteger(value) {
   return window.OtakuCore.normalizePositiveInteger(value);
+}
+
+// ============ Memoization Helpers ============
+function hashData(data) {
+  // Simple hash function for memoization
+  let hash = 0;
+  const str = JSON.stringify(data);
+  for (let i = 0; i < str.length; i += 1) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return String(hash);
+}
+
+function shouldRerender(cacheKey, data) {
+  const cache = state.memoCache[cacheKey];
+  if (!cache) return true;
+
+  const newHash = hashData(data);
+  if (cache.hash !== newHash) {
+    return true;
+  }
+  return false;
+}
+
+function updateMemoCache(cacheKey, data, html) {
+  if (!state.memoCache[cacheKey]) {
+    state.memoCache[cacheKey] = { data: null, hash: null, html: null };
+  }
+  state.memoCache[cacheKey].data = data;
+  state.memoCache[cacheKey].hash = hashData(data);
+  state.memoCache[cacheKey].html = html;
+}
+
+function getMemoizedHtml(cacheKey) {
+  return state.memoCache[cacheKey]?.html || null;
 }
 
 async function parseJsonResponse(response) {
@@ -227,22 +263,8 @@ function setBodyRoleMode() {
   });
 }
 
-function hydrateCurrentUserIdentity() {
-  const emailElement = document.getElementById("currentUserEmail");
-  const roleElement = document.getElementById("currentUserRole");
-  if (emailElement) {
-    emailElement.textContent = state.currentUser?.email || "-";
-  }
-
-  if (roleElement) {
-    roleElement.textContent = getRoleLabel(state.currentUser?.role);
-    roleElement.className = `role-badge role-${String(
-      state.currentUser?.role || "user",
-    )}`;
-  }
-
-  // Dashboard header elements were removed from the HTML; no-op here.
-}
+// `hydrateCurrentUserIdentity` is implemented in `auth.js` and called after
+// session refresh; dashboard uses that implementation to avoid duplication.
 
 function getActiveTabFromHash() {
   const hash = window.location.hash.slice(1).toLowerCase();
@@ -633,6 +655,73 @@ function buildMangaCardActions(book, options = {}) {
   return actions.join("");
 }
 
+// Optimized rendering with memoization
+function renderMangaGridOptimized(
+  containerId,
+  books,
+  options = {},
+  cacheKey = null,
+) {
+  const container = document.getElementById(containerId);
+  const emptyMessage =
+    options.emptyMessage || "Belum ada manga yang bisa ditampilkan.";
+
+  if (!container) {
+    return;
+  }
+
+  if (!Array.isArray(books) || books.length === 0) {
+    container.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
+    return;
+  }
+
+  // Check memoization cache
+  if (cacheKey && !shouldRerender(cacheKey, books)) {
+    const memoizedHtml = getMemoizedHtml(cacheKey);
+    if (memoizedHtml) {
+      container.innerHTML = memoizedHtml;
+      return;
+    }
+  }
+
+  // Generate HTML
+  const html = books
+    .map(
+      (book) => `
+        <article class="manga-card ${
+          state.selectedBookId === book.id ? "is-active" : ""
+        }">
+          <div class="manga-card-cover">
+            ${renderImageWithFallback(
+              book.thumbnailUrl,
+              `Cover ${book.title}`,
+              "Manga",
+            )}
+          </div>
+          <div class="manga-card-copy">
+            <h3>${escapeHtml(book.title)}</h3>
+            <p>${escapeHtml(book.author)}</p>
+            <span>${escapeHtml(getGenreText(book))}</span>
+            <small>${getChapterCount(book)} chapter ${getStatusLabel(
+              book.status,
+            )}</small>
+          </div>
+          <div class="button-row">
+            ${buildMangaCardActions(book, options)}
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+
+  container.innerHTML = html;
+
+  // Update memoization cache
+  if (cacheKey) {
+    updateMemoCache(cacheKey, books, html);
+  }
+}
+
 function renderMangaGrid(containerId, books, options = {}) {
   const container = document.getElementById(containerId);
   const emptyMessage =
@@ -786,6 +875,41 @@ function buildChapterRow(chapter, options = {}) {
       </div>
     </article>
   `;
+}
+
+function renderEditChapterListOptimized() {
+  const container = document.getElementById("editChapterList");
+  const chapters = state.selectedBookDetail?.chapters || [];
+  const cacheKey = "editChapterList";
+
+  if (!container) {
+    return;
+  }
+
+  if (chapters.length === 0) {
+    container.innerHTML =
+      '<p class="empty-state">Belum ada chapter untuk manga aktif.</p>';
+    return;
+  }
+
+  // Check memoization cache
+  if (!shouldRerender(cacheKey, chapters)) {
+    const memoizedHtml = getMemoizedHtml(cacheKey);
+    if (memoizedHtml) {
+      container.innerHTML = memoizedHtml;
+      return;
+    }
+  }
+
+  // Generate HTML
+  const html = chapters
+    .map((chapter) => buildChapterRow(chapter, { manage: true }))
+    .join("");
+
+  container.innerHTML = html;
+
+  // Update memoization cache
+  updateMemoCache(cacheKey, chapters, html);
 }
 
 function renderEditChapterList() {
@@ -1869,14 +1993,14 @@ async function initDashboardPage() {
     console.warn("Dashboard session refresh warning:", error.message);
   }
 
-  state.currentUser = getCurrentUserSession();
+  state.currentUser = window.OtakuSession.getCurrentUserSession();
 
   if (!state.currentUser) {
     redirectToLogin();
     return;
   }
 
-  setCurrentUserSession(state.currentUser);
+  window.OtakuSession.setCurrentUserSession(state.currentUser);
   setBodyRoleMode();
   hydrateCurrentUserIdentity();
   renderGenrePicker("addGenreOptions");
