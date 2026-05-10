@@ -61,6 +61,17 @@ function hydrateReaderIdentity() {
   }
 }
 
+function syncReaderHeaderControls() {
+  const isCollapsed = document.body.classList.contains(
+    "reader-header-collapsed",
+  );
+  const headerRestore = document.getElementById("readerHeaderRestore");
+
+  if (headerRestore) {
+    headerRestore.setAttribute("aria-hidden", isCollapsed ? "false" : "true");
+  }
+}
+
 function updateReaderHeader(data) {
   const bookTitle = document.getElementById("readerBookTitle");
 
@@ -162,12 +173,13 @@ function setActivePageIndex(index) {
 }
 
 function renderReaderNotFound(message) {
-  const chapterList = document.getElementById("readerChapterList");
+  const rightChapterList = document.getElementById("readerRightChapterList");
   const content = document.getElementById("readerContent");
+  const emptyChapterMessage =
+    '<p class="empty-state">Tidak ada daftar chapter untuk ditampilkan.</p>';
 
-  if (chapterList) {
-    chapterList.innerHTML =
-      '<p class="empty-state">Tidak ada daftar chapter untuk ditampilkan.</p>';
+  if (rightChapterList) {
+    rightChapterList.innerHTML = emptyChapterMessage;
   }
 
   if (content) {
@@ -187,26 +199,28 @@ function renderReaderNotFound(message) {
 }
 
 function renderReader(data) {
-  const chapterList = document.getElementById("readerChapterList");
+  const rightChapterList = document.getElementById("readerRightChapterList");
   const content = document.getElementById("readerContent");
 
   state.reader = data;
 
   updateReaderHeader(data);
 
-  if (chapterList) {
-    chapterList.innerHTML = data.chapters
-      .map(
-        (chapter) => `
-          <a
-            href="${chapter.href}"
-            class="reader-chapter-item ${chapter.isCurrent ? "active" : ""}"
-            data-reader-link>
-            <strong>Chapter ${chapter.chapterNumber}</strong>
-          </a>
-        `,
-      )
-      .join("");
+  const chaptersHtml = data.chapters
+    .map(
+      (chapter) => `
+        <a
+          href="${chapter.href}"
+          class="reader-chapter-item ${chapter.isCurrent ? "active" : ""}"
+          data-reader-link>
+          <strong>Chapter ${chapter.chapterNumber}</strong>
+        </a>
+      `,
+    )
+    .join("");
+
+  if (rightChapterList) {
+    rightChapterList.innerHTML = chaptersHtml;
   }
 
   if (content) {
@@ -345,27 +359,37 @@ async function flushReadingSession(options = {}) {
 }
 
 function attachReaderInteractions() {
-  const sidebar = document.getElementById("readerSidebar");
-  const sidebarOverlay = document.getElementById("readerSidebarOverlay");
-  const sidebarToggle = document.getElementById("readerChapterToggle");
-  const sidebarClose = document.getElementById("readerSidebarClose");
+  const rightSidebar = document.getElementById("readerRightSidebar");
+  const rightSidebarClose = document.getElementById("readerRightClose");
   const readerContent = document.getElementById("readerContent");
+  const rightToggle = document.getElementById("readerRightToggle");
+  const headerToggle = document.getElementById("readerHeaderToggle");
 
-  if (sidebarToggle) {
-    sidebarToggle.addEventListener("click", () => {
-      sidebar?.classList.toggle("is-open");
+  if (rightToggle && rightSidebar) {
+    rightToggle.addEventListener("click", () => {
+      rightSidebar.classList.toggle("is-open");
     });
   }
 
-  if (sidebarClose) {
-    sidebarClose.addEventListener("click", () => {
-      sidebar?.classList.remove("is-open");
+  if (rightSidebarClose && rightSidebar) {
+    rightSidebarClose.addEventListener("click", () => {
+      rightSidebar.classList.remove("is-open");
     });
   }
 
-  if (sidebarOverlay) {
-    sidebarOverlay.addEventListener("click", () => {
-      sidebar?.classList.remove("is-open");
+  if (headerToggle) {
+    headerToggle.addEventListener("click", () => {
+      document.body.classList.toggle("reader-header-collapsed");
+      syncReaderHeaderControls();
+    });
+  }
+
+  const headerRestore = document.getElementById("readerHeaderRestore");
+
+  if (headerRestore) {
+    headerRestore.addEventListener("click", () => {
+      document.body.classList.remove("reader-header-collapsed");
+      syncReaderHeaderControls();
     });
   }
 
@@ -415,11 +439,7 @@ function attachReaderInteractions() {
 
   if (readerContent) {
     readerContent.addEventListener("click", (event) => {
-      if (
-        event.target.closest(
-          "button, a, [data-reader-link]",
-        )
-      ) {
+      if (event.target.closest("button, a, [data-reader-link]")) {
         return;
       }
 
@@ -444,7 +464,7 @@ function attachReaderInteractions() {
       return;
     }
 
-    sidebar?.classList.remove("is-open");
+    rightSidebar?.classList.remove("is-open");
     event.preventDefault();
     await navigateToReader(link.getAttribute("href"));
   });
@@ -472,7 +492,7 @@ function attachReaderInteractions() {
     }
 
     if (event.key === "Escape") {
-      sidebar?.classList.remove("is-open");
+      rightSidebar?.classList.remove("is-open");
     }
   });
 
@@ -502,6 +522,8 @@ async function initReaderPage() {
   }
 
   hydrateReaderIdentity();
+  document.body.classList.add("reader-nav-visible");
+  syncReaderHeaderControls();
   attachReaderInteractions();
 
   const route = parseReaderRoute();

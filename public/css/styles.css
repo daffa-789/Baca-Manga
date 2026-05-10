@@ -968,6 +968,7 @@ body.dashboard-page {
 /* === Reader Page === */
 body.reader-page {
   background: var(--dark-bg);
+  color: var(--gray-200);
   overflow: hidden;
 }
 
@@ -993,10 +994,46 @@ body.reader-page {
   transition: all var(--transition-base);
 }
 
+.reader-header-restore {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-sm);
+  background: var(--dark-surface);
+  color: var(--gray-300);
+  z-index: 101;
+  opacity: 0;
+  pointer-events: none;
+  transition: all var(--transition-base);
+}
+
+.reader-header-restore:hover {
+  background: var(--gray-700);
+  color: white;
+  border-color: var(--accent-orange);
+}
+
+body.reader-header-collapsed .reader-header-restore {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 body.reader-nav-visible .reader-header {
   transform: translateY(0);
   opacity: 1;
   pointer-events: auto;
+}
+
+body.reader-nav-visible.reader-header-collapsed .reader-header {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .reader-header-content {
@@ -1090,6 +1127,72 @@ body.reader-nav-visible .reader-header {
   width: 100%;
 }
 
+/* Right sidebar */
+.reader-right-sidebar {
+  width: 320px;
+  max-width: 80vw;
+  background: var(--dark-surface);
+  border: 1px solid var(--dark-border);
+  border-radius: var(--radius-lg);
+  position: fixed;
+  top: 72px;
+  right: -360px;
+  height: calc(100vh - 96px);
+  padding: 1rem 1rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  transition: right 0.28s ease;
+  z-index: 180;
+  overflow: hidden;
+}
+
+.reader-right-sidebar.is-open {
+  right: 1rem;
+}
+
+.reader-right-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+.reader-right-section {
+  flex: 1;
+  overflow: auto;
+}
+
+.reader-right-section .reader-chapter-list {
+  margin: 0;
+  padding: 0;
+}
+
+.reader-right-sidebar .reader-sidebar-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  background: var(--dark-bg);
+  border: 1px solid var(--dark-border);
+  color: var(--gray-300);
+  transition: all var(--transition-fast);
+}
+
+.reader-right-sidebar .reader-sidebar-close:hover {
+  background: var(--gray-700);
+  color: white;
+  border-color: var(--accent-orange);
+}
+
+/* Hide header collapsed */
+.reader-header-collapsed .reader-header {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
 .reader-main {
   flex: 1;
   min-width: 0;
@@ -1116,7 +1219,7 @@ body.reader-nav-visible .reader-header {
   justify-content: center;
   gap: 1rem;
   padding: 4rem 2rem;
-  color: var(--gray-400);
+  color: var(--gray-200);
   min-height: 400px;
 }
 
@@ -1243,7 +1346,7 @@ body.reader-nav-visible .reader-header {
     border-radius: var(--radius-sm);
     background: var(--dark-bg);
     border: 1px solid var(--dark-border);
-    color: var(--gray-300);
+    color: var(--gray-200);
     font-size: 0.875rem;
     transition: all var(--transition-fast);
     text-align: left;
@@ -1305,7 +1408,7 @@ body.reader-nav-visible .reader-header {
     border: 1px solid var(--dark-border);
     border-radius: var(--radius-sm);
     background: var(--dark-bg);
-    color: var(--gray-300);
+    color: var(--gray-200);
     transition: all var(--transition-fast);
   }
 
@@ -1322,7 +1425,7 @@ body.reader-nav-visible .reader-header {
   }
 
   .reader-page-info {
-    color: var(--gray-300);
+    color: var(--gray-200);
     font-size: 0.875rem;
     font-weight: 500;
   }
@@ -1339,7 +1442,7 @@ body.reader-nav-visible .reader-header {
   .reader-page-fallback {
     padding: 4rem 2rem;
     text-align: center;
-    color: var(--gray-400);
+    color: var(--gray-200);
     background: var(--dark-bg);
   }
 
@@ -1362,7 +1465,7 @@ body.reader-nav-visible .reader-header {
   }
 
   .reader-empty p {
-    color: var(--gray-400);
+    color: var(--gray-200);
     font-size: 1rem;
   }
   .reader-sidebar-overlay {

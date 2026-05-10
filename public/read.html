@@ -36,11 +36,19 @@
 
           <div class="reader-header-right">
             <button
-              id="readerChapterToggle"
+              id="readerHeaderToggle"
               class="reader-header-back"
               type="button"
-              aria-label="Buka daftar chapter"
-              title="Daftar Chapter">
+              aria-label="Sembunyikan header"
+              title="Sembunyikan header">
+              <i class="bi bi-chevron-up" aria-hidden="true"></i>
+            </button>
+            <button
+              id="readerRightToggle"
+              class="reader-header-back"
+              type="button"
+              aria-label="Buka sidebar kanan"
+              title="Buka sidebar kanan">
               <i class="bi bi-list" aria-hidden="true"></i>
             </button>
           </div>
@@ -48,23 +56,26 @@
       </header>
 
       <div class="reader-layout">
-        <!-- Chapter Sidebar -->
-        <aside id="readerSidebar" class="reader-sidebar">
+        <!-- Right Sidebar -->
+        <aside id="readerRightSidebar" class="reader-right-sidebar">
           <div class="reader-sidebar-header">
             <button
-              id="readerSidebarClose"
+              id="readerRightClose"
               class="reader-sidebar-close"
               type="button"
-              aria-label="Tutup menu chapter">
-              <i class="bi bi-x-lg" aria-hidden="true"></i>
+              aria-label="Tutup sidebar kanan">
+              <i class="bi bi-chevron-right" aria-hidden="true"></i>
             </button>
             <h3>Daftar Chapter</h3>
           </div>
-          <div id="readerChapterList" class="reader-chapter-list"></div>
+          <div class="reader-right-content">
+            <section class="reader-right-section">
+              <div
+                id="readerRightChapterList"
+                class="reader-chapter-list"></div>
+            </section>
+          </div>
         </aside>
-        \n\n
-        <!-- Sidebar Overlay -->\n
-        <div id="readerSidebarOverlay" class="reader-sidebar-overlay"></div>
 
         <!-- Main Reader Area -->
         <main class="reader-main">
@@ -95,6 +106,15 @@
         </main>
       </div>
     </div>
+
+    <button
+      id="readerHeaderRestore"
+      class="reader-header-restore"
+      type="button"
+      aria-label="Tampilkan header"
+      title="Tampilkan header">
+      <i class="bi bi-chevron-down" aria-hidden="true"></i>
+    </button>
 
     <!-- Mobile Top Bar for Chapter Navigation -->
     <div id="readerMobileNav" class="reader-mobile-nav">

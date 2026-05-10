@@ -89,7 +89,7 @@ function canManageCatalog(user = state.currentUser) {
 }
 
 function canManageUsers(user = state.currentUser) {
-  return isSuperAdminUser(user);
+  return isAdminUser(user) || isSuperAdminUser(user);
 }
 
 function canViewLogs(user = state.currentUser) {
@@ -593,7 +593,6 @@ function renderCatalogCount() {
 }
 
 function buildMangaCardActions(book, options = {}) {
-  // Validasi book.id untuk debugging
   if (!book || !book.id) {
     console.error("buildMangaCardActions: book atau book.id tidak valid", book);
     return "";
@@ -602,7 +601,7 @@ function buildMangaCardActions(book, options = {}) {
   const readUrl = getFirstReadableUrl(book);
   const actions = [
     readUrl
-      ? `<button type="button" class="primary-button small" data-action="open-chapter-picker" data-book-id="${book.id}">Baca</button>`
+      ? `<a class="primary-button small" href="${readUrl}">Baca</a>`
       : `<button type="button" class="secondary-button small" disabled>Belum Ada Chapter</button>`,
   ];
 
@@ -695,7 +694,7 @@ function renderSelectedMangaPanel() {
   const readUrl = getFirstReadableUrl(book);
   const actions = [
     readUrl
-      ? `<button type="button" class="primary-button" data-action="open-chapter-picker" data-book-id="${book.id}">Baca Manga</button>`
+      ? `<a class="primary-button" href="${readUrl}">Baca Manga</a>`
       : `<button type="button" class="secondary-button" disabled>Belum Ada Chapter</button>`,
   ];
 
@@ -859,9 +858,10 @@ async function openChapterPicker(bookId) {
 
   const chapters = Array.isArray(book.chapters) ? book.chapters : [];
 
-  const chapterHtml = chapters.length === 0
-    ? '<p class="empty-state">Belum ada chapter.</p>'
-    : `<div class="chapter-picker-list">
+  const chapterHtml =
+    chapters.length === 0
+      ? '<p class="empty-state">Belum ada chapter.</p>'
+      : `<div class="chapter-picker-list">
         ${chapters
           .map((ch) => {
             const readerUrl = getReaderUrl(book, ch.chapterNumber, 1);
@@ -1075,6 +1075,12 @@ function renderActivityLogs() {
   }
 
   container.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+      <h3 style="margin:0">Activity Logs</h3>
+      <div class="button-row">
+        <button type="button" id="deleteAllLogsTop" class="danger-button small">Hapus Semua</button>
+      </div>
+    </div>
     <div class="log-table">
       <div class="log-head">
         <span>User</span>
@@ -1103,6 +1109,33 @@ function renderActivityLogs() {
         .join("")}
     </div>
   `;
+
+  // Attach top delete button
+  const deleteTop = document.getElementById("deleteAllLogsTop");
+  if (deleteTop) {
+    deleteTop.addEventListener("click", async () => {
+      const ok = window.confirm(
+        "Yakin hapus semua activity logs? Tindakan ini tidak bisa dibatalkan.",
+      );
+      if (!ok) return;
+
+      try {
+        await deleteAllLogs();
+        showFeedback("Semua activity logs telah dihapus.", "success");
+        await refreshDashboard();
+      } catch (err) {
+        showFeedback(err.message || "Gagal menghapus logs.", "error");
+      }
+    });
+  }
+}
+
+async function deleteAllLogs() {
+  try {
+    await requestJson("DELETE", LOGS_ENDPOINT);
+  } catch (error) {
+    throw error;
+  }
 }
 
 function renderEditFormFromSelectedBook() {
@@ -1337,8 +1370,8 @@ async function refreshDashboard(options = {}) {
   if (canManageUsers()) {
     const usersResult = responses[responseIndex];
     responseIndex += 1;
-    state.users = Array.isArray(usersResult.data?.items)
-      ? usersResult.data.items
+    state.users = Array.isArray(usersResult.data?.users)
+      ? usersResult.data.users
       : [];
   } else {
     state.users = [];
