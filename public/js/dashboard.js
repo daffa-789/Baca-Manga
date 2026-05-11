@@ -545,7 +545,6 @@ function renderChapterPageSlots() {
             }
           </div>
           <div class="page-slot-meta">
-            <strong>Panel ${slot.pageNumber}</strong>
             <p>${statusText}</p>
             ${fileName}
             <label class="secondary-button upload-button">
