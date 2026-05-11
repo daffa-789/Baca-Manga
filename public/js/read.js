@@ -52,8 +52,8 @@ function getAuthHeaders(baseHeaders = {}) {
   return window.OtakuCore.buildAuthHeaders(state.currentUser, baseHeaders);
 }
 
-function parseReaderRoute() {
-  const match = window.location.pathname.match(
+function parseReaderPath(pathname) {
+  const match = String(pathname || "").match(
     /^\/read\/manga\/([^/]+)\/([^/]+)\/([^/]+)\/?$/i,
   );
 
@@ -66,6 +66,10 @@ function parseReaderRoute() {
     chapter: match[2],
     page: match[3],
   };
+}
+
+function parseReaderRoute() {
+  return parseReaderPath(window.location.pathname);
 }
 
 function hydrateReaderIdentity() {
@@ -129,13 +133,52 @@ function updateReaderRoutePage(pageNumber) {
   );
 }
 
+function buildReaderHref(chapterNumber, pageNumber) {
+  const slug = state.reader?.book?.slug;
+
+  if (!slug || !chapterNumber || !pageNumber) {
+    return "";
+  }
+
+  return `/read/manga/${encodeURIComponent(slug)}/${chapterNumber}/${pageNumber}/`;
+}
+
+function getAdjacentChapterHref(direction) {
+  const chapters = state.reader?.chapters || [];
+  const activeId = state.reader?.chapter?.id;
+
+  if (!activeId || chapters.length === 0) {
+    return "";
+  }
+
+  let index = chapters.findIndex((chapter) => chapter.id === activeId);
+
+  if (index < 0) {
+    return "";
+  }
+
+  const step = direction < 0 ? -1 : 1;
+
+  for (index += step; index >= 0 && index < chapters.length; index += step) {
+    const chapter = chapters[index];
+    const pageCount = Number(chapter.pageCount || 0);
+
+    if (pageCount > 0) {
+      const pageNumber = direction < 0 ? pageCount : 1;
+      return buildReaderHref(Number(chapter.chapterNumber), pageNumber);
+    }
+  }
+
+  return "";
+}
+
 function syncNavigationControls() {
   const totalPages = state.pageElements.length;
   const hasPrevInChapter = state.currentPageIndex > 0;
   const hasNextInChapter =
     totalPages > 0 && state.currentPageIndex < totalPages - 1;
-  const previousHref = state.reader?.pager?.previous?.href || "";
-  const nextHref = state.reader?.pager?.next?.href || "";
+  const previousHref = !hasPrevInChapter ? getAdjacentChapterHref(-1) : "";
+  const nextHref = !hasNextInChapter ? getAdjacentChapterHref(1) : "";
   const prevButtons = [state.dom?.prevButton, state.dom?.prevButtonMobile];
   prevButtons.forEach((button) => {
     const btn = button || null;
@@ -360,13 +403,10 @@ async function handleDirectionalNavigation(direction) {
     return;
   }
 
-  if (direction < 0 && state.reader?.pager?.previous?.href) {
-    await navigateToReader(state.reader.pager.previous.href);
-    return;
-  }
+  const href = getAdjacentChapterHref(direction);
 
-  if (direction > 0 && state.reader?.pager?.next?.href) {
-    await navigateToReader(state.reader.pager.next.href);
+  if (href) {
+    await navigateToReader(href);
   }
 }
 
@@ -460,39 +500,30 @@ function attachReaderInteractions() {
     });
   }
 
-  [
-    state.dom?.prevButton || document.getElementById("readerPrevButton"),
-    state.dom?.prevButtonMobile ||
-      document.getElementById("readerPrevButtonMobile"),
-  ].forEach((button) => {
+  const attachNavButton = (button, direction) => {
     if (!button) return;
     button.addEventListener("click", async () => {
       if (button.disabled) return;
       const href = button.dataset.href;
       if (href) {
         await navigateToReader(href);
-      } else {
-        await handleDirectionalNavigation(-1);
+        return;
       }
+      await handleDirectionalNavigation(direction);
     });
-  });
+  };
+
+  [
+    state.dom?.prevButton || document.getElementById("readerPrevButton"),
+    state.dom?.prevButtonMobile ||
+      document.getElementById("readerPrevButtonMobile"),
+  ].forEach((button) => attachNavButton(button, -1));
 
   [
     state.dom?.nextButton || document.getElementById("readerNextButton"),
     state.dom?.nextButtonMobile ||
       document.getElementById("readerNextButtonMobile"),
-  ].forEach((button) => {
-    if (!button) return;
-    button.addEventListener("click", async () => {
-      if (button.disabled) return;
-      const href = button.dataset.href;
-      if (href) {
-        await navigateToReader(href);
-      } else {
-        await handleDirectionalNavigation(1);
-      }
-    });
-  });
+  ].forEach((button) => attachNavButton(button, 1));
 
   if (readerContent) {
     readerContent.addEventListener("click", (event) => {
